@@ -2,92 +2,59 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { demoOrgs, demoTickets, demoUsers } from "@/lib/demo/mock-data";
 
 type Org = { id: string; name: string; slug: string };
 type User = { id: string; orgId: string; email: string; name: string; role: string };
 type Ticket = {
   id: string;
   title: string;
-  description: string;
   type: string;
   status: string;
   priority: string;
-  allowedApps: string[];
   assignedDeveloperId: string | null;
   testerId: string | null;
-  creatorName?: string;
-  blockedUrlPatterns: string[];
 };
 
-export default function AdminPage() {
+export default function AdminOverviewPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [orgName, setOrgName] = useState("Acme Studio");
-  const [orgSlug, setOrgSlug] = useState("");
-  const [userName, setUserName] = useState("Jamie Rivera");
-  const [userEmail, setUserEmail] = useState("jamie@acme.local");
-  const [userPassword, setUserPassword] = useState("change-me-now");
-  const [userRole, setUserRole] = useState("developer");
-  const [sendCredentialsEmail, setSendCredentialsEmail] = useState(true);
-  const [userOrgId, setUserOrgId] = useState("");
-  const [ticketTitle, setTicketTitle] = useState("Build login flow");
-  const [ticketDescription, setTicketDescription] = useState(
-    "Implement the login form, validation, and error states."
-  );
-  const [ticketType, setTicketType] = useState("task");
-  const [ticketPriority, setTicketPriority] = useState("high");
-  const [ticketApps, setTicketApps] = useState("dashboard,profile,analytics");
-  const [ticketDeveloperId, setTicketDeveloperId] = useState("");
-  const [ticketTesterId, setTicketTesterId] = useState("");
-  const [ticketBlocked, setTicketBlocked] = useState("");
-  const [assignTicketId, setAssignTicketId] = useState("");
-  const [assignDeveloperId, setAssignDeveloperId] = useState("");
-  const [assignTesterId, setAssignTesterId] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const developerUsers = users.filter((user) => user.role === "developer");
-  const testerUsers = users.filter((user) => user.role === "tester");
-  const hrManagerUsers = users.filter((user) => user.role === "hr" || user.role === "manager");
-  const bugTickets = tickets.filter((ticket) => ticket.type === "bug");
-  const taskTickets = tickets.filter((ticket) => ticket.type === "task");
-
-  function countAssignedTickets(userId: string) {
-    return tickets.filter((ticket) => ticket.assignedDeveloperId === userId || ticket.testerId === userId).length;
-  }
+  const [loading, setLoading] = useState(true);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [orgsRes, usersRes, ticketsRes] = await Promise.all([
         fetch("/api/orgs"),
         fetch("/api/users"),
         fetch("/api/tickets"),
       ]);
+      const orgsData = orgsRes.ok
+        ? ((await orgsRes.json()) as { orgs: Org[] }).orgs
+        : [];
+      const usersData = usersRes.ok
+        ? ((await usersRes.json()) as { users: User[] }).users
+        : [];
+      const ticketsData = ticketsRes.ok
+        ? ((await ticketsRes.json()) as { tickets: Ticket[] }).tickets
+        : [];
 
-      if (orgsRes.ok) {
-        const data = (await orgsRes.json()) as { orgs: Org[] };
-        setOrgs(data.orgs);
-        setUserOrgId((prev) => prev || data.orgs[0]?.id || "");
+      const shouldUseMock =
+        orgsData.length === 0 && usersData.length === 0 && ticketsData.length === 0;
+
+      if (shouldUseMock) {
+        setOrgs(demoOrgs as Org[]);
+        setUsers(demoUsers as User[]);
+        setTickets(demoTickets as Ticket[]);
+      } else {
+        setOrgs(orgsData);
+        setUsers(usersData);
+        setTickets(ticketsData);
       }
-      if (usersRes.ok) {
-        const data = (await usersRes.json()) as { users: User[] };
-        setUsers(data.users);
-        const firstDeveloper = data.users.find((user) => user.role === "developer");
-        const firstTester = data.users.find((user) => user.role === "tester");
-        setTicketDeveloperId((prev) => prev || firstDeveloper?.id || "");
-        setTicketTesterId((prev) => prev || firstTester?.id || "");
-        setAssignDeveloperId((prev) => prev || firstDeveloper?.id || "");
-        setAssignTesterId((prev) => prev || firstTester?.id || "");
-      }
-      if (ticketsRes.ok) {
-        const data = (await ticketsRes.json()) as { tickets: Ticket[] };
-        setTickets(data.tickets);
-        setAssignTicketId((prev) => prev || data.tickets[0]?.id || "");
-      }
-    } catch {
-      setError("Failed to load admin data");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -95,323 +62,214 @@ export default function AdminPage() {
     void load();
   }, [load]);
 
-  async function createOrg(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-    const res = await fetch("/api/orgs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: orgName, slug: orgSlug || undefined }),
-    });
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setError(data.error ?? "Could not create org");
-      return;
-    }
-    setMessage("Organization created.");
-    setOrgSlug("");
-    await load();
-  }
+  const developerUsers = users.filter((u) => u.role === "developer");
+  const testerUsers = users.filter((u) => u.role === "tester");
+  const hrManagerUsers = users.filter((u) => u.role === "hr" || u.role === "manager");
+  const bugTickets = tickets.filter((t) => t.type === "bug");
+  const taskTickets = tickets.filter((t) => t.type === "task");
 
-  async function createUser(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-    const res = await fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: userOrgId || undefined,
-        name: userName,
-        email: userEmail,
-        password: userPassword,
-        role: userRole,
-        sendCredentialsEmail,
-      }),
-    });
-    const data = (await res.json()) as {
-      error?: string;
-      notification?: { attempted: boolean; sent: boolean; message: string };
-    };
-    if (!res.ok) {
-      setError(data.error ?? "Could not create user");
-      return;
-    }
-    setMessage(
-      data.notification?.attempted
-        ? `User created. ${data.notification.message}`
-        : "User created."
+  const openTickets = tickets.filter((t) => t.status === "open");
+  const inProgressTickets = tickets.filter((t) => t.status === "in_progress");
+  const testingTickets = tickets.filter((t) => t.status === "testing");
+  const closedTickets = tickets.filter((t) => t.status === "closed");
+
+  const quickLinks = [
+    { href: "/admin/orgs", label: "Manage Organizations", desc: "Create and view orgs", color: "border-indigo-500/30 hover:border-indigo-500/50", icon: "bg-indigo-500/15 text-indigo-400" },
+    { href: "/admin/users", label: "Manage Users", desc: "Add team members, view roles", color: "border-violet-500/30 hover:border-violet-500/50", icon: "bg-violet-500/15 text-violet-400" },
+    { href: "/admin/tickets", label: "Manage Tickets", desc: "Create, assign, and track tickets", color: "border-amber-500/30 hover:border-amber-500/50", icon: "bg-amber-500/15 text-amber-400" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      </div>
     );
-    await load();
   }
 
-  async function createTicket(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-    const allowedApps = ticketApps
-      .split(/[,\n]+/)
-      .map((value) => value.trim())
-      .filter(Boolean);
-    const blockedUrlPatterns = ticketBlocked.split(/[,\n]+/).map((value) => value.trim()).filter(Boolean);
-    const res = await fetch("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: ticketTitle,
-        description: ticketDescription,
-        type: ticketType,
-        priority: ticketPriority,
-        allowedApps,
-        assignedDeveloperId: ticketDeveloperId || null,
-        testerId: ticketTesterId || null,
-        blockedUrlPatterns,
-      }),
-    });
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setError(data.error ?? "Could not create ticket");
-      return;
-    }
-    setMessage("Ticket created.");
-    await load();
-  }
-
-  async function assignTicket(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-    const res = await fetch(`/api/tickets/${assignTicketId}/assign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        developerId: assignDeveloperId,
-        testerId: assignTesterId || null,
-      }),
-    });
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setError(data.error ?? "Could not assign ticket");
-      return;
-    }
-    setMessage("Ticket assignment updated.");
-    await load();
-  }
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+  function generateAiSuggestions() {
+    setIsGeneratingSuggestions(true);
+    window.setTimeout(() => {
+      setAiSuggestions([
+        "Move open tickets into active sprint lanes.",
+        "Prioritize testing queue for faster closure.",
+        "Keep team assignment balanced to avoid overload.",
+      ]);
+      setIsGeneratingSuggestions(false);
+    }, 600);
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-gradient-to-r from-white via-indigo-50 to-cyan-50 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase text-indigo-600 dark:text-indigo-400">HR / Manager</p>
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-white">WorkFlowGuard control panel</h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Manage team members, assign bugs/tasks, and send credentials to developers and testers.</p>
+    <div className="space-y-8">
+      {/* ── Stat cards ───────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Organizations */}
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Organizations</p>
+              <p className="mt-2 text-3xl font-bold text-white tabular-nums">{orgs.length}</p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="h-5 w-5 text-indigo-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21" />
+              </svg>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <Link href="/" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400">Home</Link>
-            <button type="button" onClick={() => void logout()} className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Log out</button>
+          <div className="mt-3 h-0.5 w-full rounded-full bg-indigo-500/15">
+            <div className="h-0.5 rounded-full bg-indigo-500" style={{ width: orgs.length > 0 ? "100%" : "0%" }} />
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Organizations</p>
-            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{orgs.length}</p>
-          </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Team members</p>
-            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{users.length}</p>
-            <p className="text-xs text-zinc-500">HR/Manager {hrManagerUsers.length} · Dev {developerUsers.length} · Tester {testerUsers.length}</p>
-          </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Task tickets</p>
-            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{taskTickets.length}</p>
-          </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Bug tickets</p>
-            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{bugTickets.length}</p>
-          </div>
-        </section>
-
-        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{message}</p> : null}
-        {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">{error}</p> : null}
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <form onSubmit={createOrg} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Create org</h2>
-            <div className="mt-4 space-y-3">
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Organization name" />
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={orgSlug} onChange={(e) => setOrgSlug(e.target.value)} placeholder="Slug (optional)" />
-              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Create org</button>
+        {/* Team members */}
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Team members</p>
+              <p className="mt-2 text-3xl font-bold text-white tabular-nums">{users.length}</p>
+              <p className="mt-1 text-xs text-zinc-500">HR/Mgr {hrManagerUsers.length} · Dev {developerUsers.length} · QA {testerUsers.length}</p>
             </div>
-          </form>
-
-          <form onSubmit={createUser} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Create user</h2>
-            <div className="mt-4 space-y-3">
-              <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={userOrgId} onChange={(e) => setUserOrgId(e.target.value)}>
-                {orgs.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
-              </select>
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Name" />
-              <input type="email" className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="Email" />
-              <input type="password" className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} placeholder="Password" />
-              <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={userRole} onChange={(e) => setUserRole(e.target.value)}>
-                <option value="hr">HR</option>
-                <option value="manager">Manager</option>
-                <option value="developer">Developer</option>
-                <option value="tester">Tester</option>
-              </select>
-              <label className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={sendCredentialsEmail}
-                  onChange={(e) => setSendCredentialsEmail(e.target.checked)}
-                />
-                Email username/password to developer or tester
-              </label>
-              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Create user</button>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="h-5 w-5 text-violet-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+              </svg>
             </div>
-          </form>
-        </section>
+          </div>
+          <div className="mt-3 h-0.5 w-full rounded-full bg-violet-500/15">
+            <div className="h-0.5 rounded-full bg-violet-500 transition-all" style={{ width: users.length > 0 ? `${Math.min(100, users.length * 10)}%` : "0%" }} />
+          </div>
+        </div>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Team and assignment view</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">HR and managers can track each developer/tester and how many bugs or tasks are assigned.</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Developers</h3>
-              {developerUsers.map((user) => (
-                <div key={user.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                  <p className="font-medium text-zinc-900 dark:text-white">{user.name}</p>
-                  <p className="text-xs text-zinc-500">{user.email}</p>
-                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Assigned tickets: {countAssignedTickets(user.id)}</p>
+        {/* Task tickets */}
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Task tickets</p>
+              <p className="mt-2 text-3xl font-bold text-white tabular-nums">{taskTickets.length}</p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="h-5 w-5 text-amber-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-3 h-0.5 w-full rounded-full bg-amber-500/15">
+            <div className="h-0.5 rounded-full bg-amber-500 transition-all" style={{ width: tickets.length > 0 ? `${Math.round((taskTickets.length / tickets.length) * 100)}%` : "0%" }} />
+          </div>
+        </div>
+
+        {/* Bug tickets */}
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Bug tickets</p>
+              <p className="mt-2 text-3xl font-bold text-white tabular-nums">{bugTickets.length}</p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/15">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="h-5 w-5 text-rose-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.047.83-1.867 1.866-2.013A24.204 24.204 0 0112 12.75zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 01-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 00-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.778 3.778 0 01.4-2.25m0 0a5.002 5.002 0 019.45 0m-9.45 0A5.002 5.002 0 002.55 6" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-3 h-0.5 w-full rounded-full bg-rose-500/15">
+            <div className="h-0.5 rounded-full bg-rose-500 transition-all" style={{ width: tickets.length > 0 ? `${Math.round((bugTickets.length / tickets.length) * 100)}%` : "0%" }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Link href="/admin/ai-assistant" className="rounded-2xl border border-indigo-500/25 bg-indigo-500/10 p-5 transition-all hover:border-indigo-500/50 hover:bg-indigo-500/15">
+          <p className="text-sm font-semibold text-indigo-200">AI Assistant</p>
+          <p className="mt-1 text-xs text-zinc-300">Open dedicated suggestions page</p>
+          <div className="mt-3 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                generateAiSuggestions();
+              }}
+              disabled={isGeneratingSuggestions}
+              className="rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {isGeneratingSuggestions ? "Analyzing..." : "Quick Suggest"}
+            </button>
+            <span className="text-xs text-indigo-200">{aiSuggestions.length} ready</span>
+          </div>
+        </Link>
+        <Link href="/admin/productivity" className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-5 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/15">
+          <p className="text-sm font-semibold text-emerald-200">Productivity</p>
+          <p className="mt-1 text-xs text-zinc-300">Open full productivity dashboard</p>
+        </Link>
+        <Link href="/admin/team-mood" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-5 transition-all hover:border-cyan-500/50 hover:bg-cyan-500/15">
+          <p className="text-sm font-semibold text-cyan-200">Team Mood</p>
+          <p className="mt-1 text-xs text-zinc-300">View each person mood indicator</p>
+        </Link>
+      </div>
+
+      {/* ── Ticket pipeline ──────────────────────────────────── */}
+      {tickets.length > 0 && (
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
+          <h2 className="mb-5 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+            Ticket pipeline
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-4">
+            {[
+              { label: "Open", count: openTickets.length, bg: "bg-blue-500/10", text: "text-blue-400", bar: "bg-blue-500" },
+              { label: "In progress", count: inProgressTickets.length, bg: "bg-amber-500/10", text: "text-amber-400", bar: "bg-amber-500" },
+              { label: "Testing", count: testingTickets.length, bg: "bg-violet-500/10", text: "text-violet-400", bar: "bg-violet-500" },
+              { label: "Closed", count: closedTickets.length, bg: "bg-emerald-500/10", text: "text-emerald-400", bar: "bg-emerald-500" },
+            ].map((stage) => (
+              <div key={stage.label} className={`rounded-xl ${stage.bg} p-4`}>
+                <p className={`text-xs font-semibold uppercase tracking-wide ${stage.text}`}>{stage.label}</p>
+                <p className="mt-1 text-2xl font-bold text-white tabular-nums">{stage.count}</p>
+                <div className="mt-2 h-1 w-full rounded-full bg-white/10">
+                  <div
+                    className={`h-1 rounded-full ${stage.bar} transition-all`}
+                    style={{ width: tickets.length > 0 ? `${Math.round((stage.count / tickets.length) * 100)}%` : "0%" }}
+                  />
                 </div>
-              ))}
-              {!developerUsers.length ? <p className="text-sm text-zinc-500">No developers yet.</p> : null}
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Testers</h3>
-              {testerUsers.map((user) => (
-                <div key={user.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                  <p className="font-medium text-zinc-900 dark:text-white">{user.name}</p>
-                  <p className="text-xs text-zinc-500">{user.email}</p>
-                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Assigned tickets: {countAssignedTickets(user.id)}</p>
-                </div>
-              ))}
-              {!testerUsers.length ? <p className="text-sm text-zinc-500">No testers yet.</p> : null}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <form onSubmit={createTicket} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Create ticket</h2>
-            <div className="mt-4 space-y-3">
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketTitle} onChange={(e) => setTicketTitle(e.target.value)} placeholder="Title" />
-              <textarea className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketDescription} onChange={(e) => setTicketDescription(e.target.value)} placeholder="Description" rows={3} />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketType} onChange={(e) => setTicketType(e.target.value)}>
-                  <option value="task">Task</option>
-                  <option value="bug">Bug</option>
-                </select>
-                <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketPriority} onChange={(e) => setTicketPriority(e.target.value)}>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
               </div>
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketApps} onChange={(e) => setTicketApps(e.target.value)} placeholder="Allowed apps, comma-separated" />
-              <input className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketBlocked} onChange={(e) => setTicketBlocked(e.target.value)} placeholder="Blocked urls or paths, comma-separated" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketDeveloperId} onChange={(e) => setTicketDeveloperId(e.target.value)}>
-                  <option value="">Assign developer</option>
-                  {users.filter((user) => user.role === "developer").map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-                </select>
-                <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={ticketTesterId} onChange={(e) => setTicketTesterId(e.target.value)}>
-                  <option value="">Assign tester</option>
-                  {users.filter((user) => user.role === "tester").map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-                </select>
-              </div>
-              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Create ticket</button>
-            </div>
-          </form>
-
-          <form onSubmit={assignTicket} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Assign existing ticket</h2>
-            <div className="mt-4 space-y-3">
-              <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={assignTicketId} onChange={(e) => setAssignTicketId(e.target.value)}>
-                {tickets.map((ticket) => <option key={ticket.id} value={ticket.id}>{ticket.title}</option>)}
-              </select>
-              <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={assignDeveloperId} onChange={(e) => setAssignDeveloperId(e.target.value)}>
-                {users.filter((user) => user.role === "developer").map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-              </select>
-              <select className="w-full rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white" value={assignTesterId} onChange={(e) => setAssignTesterId(e.target.value)}>
-                <option value="">No tester</option>
-                {users.filter((user) => user.role === "tester").map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-              </select>
-              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Update assignment</button>
-            </div>
-          </form>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Organizations</h2>
-            <div className="mt-4 space-y-2">
-              {orgs.map((org) => (
-                <div key={org.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                  <p className="font-medium text-zinc-900 dark:text-white">{org.name}</p>
-                  <p className="text-xs text-zinc-500">{org.slug}</p>
-                </div>
-              ))}
-              {!orgs.length ? <p className="text-sm text-zinc-500">No orgs yet.</p> : null}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Users</h2>
-            <div className="mt-4 space-y-2">
-              {users.map((user) => (
-                <div key={user.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-                  <p className="font-medium text-zinc-900 dark:text-white">{user.name} <span className="text-xs uppercase text-zinc-500">{user.role}</span></p>
-                  <p className="text-xs text-zinc-500">{user.email}</p>
-                </div>
-              ))}
-              {!users.length ? <p className="text-sm text-zinc-500">No users yet.</p> : null}
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Tickets</h2>
-          <div className="mt-4 grid gap-4">
-            {tickets.map((ticket) => (
-              <article key={ticket.id} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-zinc-900 dark:text-white">{ticket.title}</h3>
-                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{ticket.description}</p>
-                    <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">{ticket.type} · {ticket.priority} · {ticket.status}</p>
-                    <p className="mt-2 text-xs text-zinc-500">Allowed apps: {ticket.allowedApps.join(", ")}</p>
-                    <p className="mt-1 text-xs text-zinc-500">Blocked patterns: {ticket.blockedUrlPatterns.join(", ") || "None"}</p>
-                  </div>
-                  <Link href={`/workspace/${ticket.id}/dashboard`} className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-zinc-950">Open workspace</Link>
-                </div>
-              </article>
             ))}
-            {!tickets.length ? <p className="text-sm text-zinc-500">No tickets yet.</p> : null}
           </div>
-        </section>
-      </main>
+        </div>
+      )}
+
+      {/* ── Quick nav cards ──────────────────────────────────── */}
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+          Quick access
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`group flex items-center gap-4 rounded-2xl border bg-white/3 p-5 transition-all hover:bg-white/5 ${link.color}`}
+            >
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${link.icon}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" className="h-5 w-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-white">{link.label}</p>
+                <p className="mt-0.5 text-xs text-zinc-400">{link.desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Empty state ──────────────────────────────────────── */}
+      {!loading && orgs.length === 0 && (
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-10 text-center">
+          <p className="text-sm font-medium text-white">No data yet</p>
+          <p className="mt-1 text-sm text-zinc-500">Start by creating an organization and adding team members.</p>
+          <Link href="/admin/orgs" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors">
+            Create organization
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
