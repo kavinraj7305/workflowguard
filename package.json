@@ -13,6 +13,9 @@
     "db:seed": "tsx --env-file=.env scripts/seed.ts"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.0.0",
     "@neondatabase/serverless": "^1.0.2",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",

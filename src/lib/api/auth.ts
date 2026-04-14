@@ -14,7 +14,7 @@ export async function requireSession(): Promise<
 export async function requireHr(): Promise<SessionPayload | NextResponse> {
   const s = await requireSession();
   if (s instanceof NextResponse) return s;
-  if (s.role !== "hr") {
+  if (s.role !== "hr" && s.role !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return s;
@@ -23,7 +23,7 @@ export async function requireHr(): Promise<SessionPayload | NextResponse> {
 export async function requireEmployee(): Promise<SessionPayload | NextResponse> {
   const s = await requireSession();
   if (s instanceof NextResponse) return s;
-  if (s.role !== "employee") {
+  if (s.role !== "developer" && s.role !== "tester") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return s;

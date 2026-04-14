@@ -9,25 +9,41 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
-export const userRoleEnum = pgEnum("user_role", ["hr", "employee"]);
-
-export const assignmentStatusEnum = pgEnum("assignment_status", [
-  "pending",
-  "in_progress",
-  "completed",
+export const userRoleEnum = pgEnum("user_role", [
+  "hr",
+  "manager",
+  "developer",
+  "tester",
 ]);
 
-export const classificationEnum = pgEnum("productivity_class", [
-  "engaged",
-  "distracted",
-  "idle",
-]);
+export const ticketStatusEnum = pgEnum("ticket_status", ["open", "in_progress", "testing", "closed"]);
+
+export const ticketTypeEnum = pgEnum("ticket_type", ["task", "bug"]);
+
+export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "medium", "high", "urgent"]);
+
+export const orgs = pgTable(
+  "orgs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [uniqueIndex("orgs_slug_unique").on(t.slug)]
+);
 
 export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => orgs.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
@@ -39,128 +55,148 @@ export const users = pgTable(
   (t) => [uniqueIndex("users_email_unique").on(t.email)]
 );
 
-export const tasks = pgTable("tasks", {
+export const tickets = pgTable("tickets", {
   id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => orgs.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
-  expectedMinutes: integer("expected_minutes").notNull(),
+  type: ticketTypeEnum("type").notNull().default("task"),
+  status: ticketStatusEnum("status").notNull().default("open"),
+  priority: ticketPriorityEnum("priority").notNull().default("medium"),
+  allowedApps: jsonb("allowed_apps")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  blockedUrlPatterns: jsonb("blocked_url_patterns")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   createdById: uuid("created_by_id")
     .notNull()
     .references(() => users.id, { onDelete: "restrict" }),
+  assignedDeveloperId: uuid("assigned_developer_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  testerId: uuid("tester_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  screenshotData: text("screenshot_data"),
+  screenshotName: text("screenshot_name"),
+  screenshotMimeType: text("screenshot_mime_type"),
+  screenshotUploadedAt: timestamp("screenshot_uploaded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
 });
 
-export const taskAllowedUrls = pgTable("task_allowed_urls", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  taskId: uuid("task_id")
-    .notNull()
-    .references(() => tasks.id, { onDelete: "cascade" }),
-  urlPattern: text("url_pattern").notNull(),
-});
+export const ticketActivityTypeEnum = pgEnum("ticket_activity_type", [
+  "session_start",
+  "session_end",
+  "page_view",
+  "resource_use",
+  "site_visit",
+  "idle_start",
+  "idle_end",
+  "heartbeat",
+  "focus_start",
+  "focus_pause",
+  "focus_resume",
+  "focus_stop",
+]);
 
-export const taskAssignments = pgTable(
-  "task_assignments",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    taskId: uuid("task_id")
-      .notNull()
-      .references(() => tasks.id, { onDelete: "cascade" }),
-    employeeId: uuid("employee_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    status: assignmentStatusEnum("status").notNull().default("pending"),
-    dueAt: timestamp("due_at", { withTimezone: true }),
-    assignedAt: timestamp("assigned_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-  },
-  (t) => [
-    uniqueIndex("task_assignments_task_employee_unique").on(
-      t.taskId,
-      t.employeeId
-    ),
-  ]
-);
-
-export const engagementEvents = pgTable("engagement_events", {
+export const ticketActivityEvents = pgTable("ticket_activity_events", {
   id: uuid("id").defaultRandom().primaryKey(),
-  assignmentId: uuid("assignment_id")
+  ticketId: uuid("ticket_id")
     .notNull()
-    .references(() => taskAssignments.id, { onDelete: "cascade" }),
-  eventType: text("event_type").notNull(),
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  eventType: ticketActivityTypeEnum("event_type").notNull(),
   pathOrUrl: text("path_or_url"),
-  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  resourceName: text("resource_name"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
 
-export const productivitySnapshots = pgTable("productivity_snapshots", {
+export const ticketFocusSessions = pgTable("ticket_focus_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  assignmentId: uuid("assignment_id")
+  ticketId: uuid("ticket_id")
     .notNull()
-    .references(() => taskAssignments.id, { onDelete: "cascade" }),
-  score: integer("score").notNull(),
-  classification: classificationEnum("classification").notNull(),
-  details: jsonb("details").$type<Record<string, unknown>>().notNull(),
-  computedAt: timestamp("computed_at", { withTimezone: true })
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull().default("pomodoro"),
+  startedAt: timestamp("started_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  plannedMinutes: integer("planned_minutes").notNull().default(25),
+  breakMinutes: integer("break_minutes").notNull().default(5),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
-  tasksCreated: many(tasks),
-  assignments: many(taskAssignments),
+export const orgsRelations = relations(orgs, ({ many }) => ({
+  users: many(users),
+  tickets: many(tickets),
 }));
 
-export const tasksRelations = relations(tasks, ({ one, many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  org: one(orgs, {
+    fields: [users.orgId],
+    references: [orgs.id],
+  }),
+  createdTickets: many(tickets),
+  assignedTickets: many(tickets),
+  testerTickets: many(tickets),
+}));
+
+export const ticketsRelations = relations(tickets, ({ one }) => ({
+  org: one(orgs, {
+    fields: [tickets.orgId],
+    references: [orgs.id],
+  }),
   createdBy: one(users, {
-    fields: [tasks.createdById],
+    fields: [tickets.createdById],
     references: [users.id],
   }),
-  allowedUrls: many(taskAllowedUrls),
-  assignments: many(taskAssignments),
+  assignedDeveloper: one(users, {
+    fields: [tickets.assignedDeveloperId],
+    references: [users.id],
+  }),
+  tester: one(users, {
+    fields: [tickets.testerId],
+    references: [users.id],
+  })
 }));
 
-export const taskAllowedUrlsRelations = relations(taskAllowedUrls, ({ one }) => ({
-  task: one(tasks, {
-    fields: [taskAllowedUrls.taskId],
-    references: [tasks.id],
+export const ticketActivityEventsRelations = relations(ticketActivityEvents, ({ one }) => ({
+  ticket: one(tickets, {
+    fields: [ticketActivityEvents.ticketId],
+    references: [tickets.id],
+  }),
+  user: one(users, {
+    fields: [ticketActivityEvents.userId],
+    references: [users.id],
   }),
 }));
 
-export const taskAssignmentsRelations = relations(
-  taskAssignments,
-  ({ one, many }) => ({
-    task: one(tasks, {
-      fields: [taskAssignments.taskId],
-      references: [tasks.id],
-    }),
-    employee: one(users, {
-      fields: [taskAssignments.employeeId],
-      references: [users.id],
-    }),
-    events: many(engagementEvents),
-    snapshots: many(productivitySnapshots),
-  })
-);
-
-export const engagementEventsRelations = relations(engagementEvents, ({ one }) => ({
-  assignment: one(taskAssignments, {
-    fields: [engagementEvents.assignmentId],
-    references: [taskAssignments.id],
+export const ticketFocusSessionsRelations = relations(ticketFocusSessions, ({ one }) => ({
+  ticket: one(tickets, {
+    fields: [ticketFocusSessions.ticketId],
+    references: [tickets.id],
+  }),
+  user: one(users, {
+    fields: [ticketFocusSessions.userId],
+    references: [users.id],
   }),
 }));
-
-export const productivitySnapshotsRelations = relations(
-  productivitySnapshots,
-  ({ one }) => ({
-    assignment: one(taskAssignments, {
-      fields: [productivitySnapshots.assignmentId],
-      references: [taskAssignments.id],
-    }),
-  })
-);

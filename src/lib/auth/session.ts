@@ -3,9 +3,10 @@ import { cookies } from "next/headers";
 
 export type SessionPayload = {
   sub: string;
+  orgId: string;
   email: string;
   name: string;
-  role: "hr" | "employee";
+  role: "hr" | "manager" | "developer" | "tester";
 };
 
 const COOKIE = "wf_session";
@@ -34,11 +35,18 @@ export async function verifySessionToken(
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
     const sub = typeof payload.sub === "string" ? payload.sub : null;
+    const orgId = typeof payload.orgId === "string" ? payload.orgId : null;
     const email = typeof payload.email === "string" ? payload.email : null;
     const name = typeof payload.name === "string" ? payload.name : null;
-    const role = payload.role === "hr" || payload.role === "employee" ? payload.role : null;
-    if (!sub || !email || !name || !role) return null;
-    return { sub, email, name, role };
+    const role =
+      payload.role === "hr" ||
+      payload.role === "manager" ||
+      payload.role === "developer" ||
+      payload.role === "tester"
+        ? payload.role
+        : null;
+    if (!sub || !orgId || !email || !name || !role) return null;
+    return { sub, orgId, email, name, role };
   } catch {
     return null;
   }

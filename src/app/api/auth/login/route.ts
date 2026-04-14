@@ -5,8 +5,6 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSessionToken, setSessionCookie } from "@/lib/auth/session";
-import { isMockMode } from "@/lib/mock-mode";
-import { resolveMockLogin } from "@/lib/mock-data";
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -26,31 +24,6 @@ export async function POST(request: Request) {
   }
   const { email, password } = parsed.data;
 
-  if (isMockMode()) {
-    const mockUser = resolveMockLogin(email, password);
-    if (!mockUser) {
-      return NextResponse.json(
-        { error: "Invalid credentials (mock demo: hr@demo.local or employee@demo.local / demo)" },
-        { status: 401 }
-      );
-    }
-    const token = await createSessionToken({
-      sub: mockUser.id,
-      email: mockUser.email,
-      name: mockUser.name,
-      role: mockUser.role,
-    });
-    await setSessionCookie(token);
-    return NextResponse.json({
-      user: {
-        id: mockUser.id,
-        email: mockUser.email,
-        name: mockUser.name,
-        role: mockUser.role,
-      },
-    });
-  }
-
   const row = await db()
     .select()
     .from(users)
@@ -64,6 +37,7 @@ export async function POST(request: Request) {
 
   const token = await createSessionToken({
     sub: row.id,
+    orgId: row.orgId,
     email: row.email,
     name: row.name,
     role: row.role,
@@ -73,6 +47,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     user: {
       id: row.id,
+      orgId: row.orgId,
       email: row.email,
       name: row.name,
       role: row.role,

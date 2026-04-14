@@ -3,32 +3,30 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-type Assignment = {
+type Ticket = {
   id: string;
   status: string;
-  task: {
-    id: string;
-    title: string;
-    description: string;
-    expectedMinutes: number;
-    allowedUrlPatterns: string[];
-  };
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  allowedApps: string[];
 };
 
 export default function EmployeePage() {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch("/api/my-assignments");
+      const res = await fetch("/api/tickets?scope=mine");
       if (!res.ok) {
-        setError("Could not load assignments");
+        setError("Could not load tickets");
         return;
       }
-      const data = (await res.json()) as { assignments: Assignment[] };
-      setAssignments(data.assignments);
+      const data = (await res.json()) as { tickets: Ticket[] };
+      setTickets(data.tickets);
     } catch {
       setError("Network error");
     }
@@ -49,10 +47,10 @@ export default function EmployeePage() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <div>
             <p className="text-xs font-semibold uppercase text-indigo-600 dark:text-indigo-400">
-              Employee
+              Developer
             </p>
             <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
-              My tasks
+              My tickets
             </h1>
           </div>
           <div className="flex gap-3">
@@ -76,7 +74,7 @@ export default function EmployeePage() {
       <main className="mx-auto max-w-4xl px-4 py-10">
         {process.env.NEXT_PUBLIC_USE_MOCK === "true" ? (
           <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
-            <strong>Mock demo</strong> — use workspace link below; engagement calls are simulated.
+            <strong>Demo hint</strong> — open a workspace, attach a screenshot, and move the ticket to testing.
           </p>
         ) : null}
         {error ? (
@@ -85,34 +83,32 @@ export default function EmployeePage() {
           </p>
         ) : null}
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Open the workspace to work on assigned flows. Engagement is derived from
-          your activity on task-related pages and completion—not from judging
-          arbitrary websites.
+          Only the ticket workspace and the approved app tabs are exposed here.
+          Everything else stays out of reach by design.
         </p>
         <ul className="mt-6 space-y-4">
-          {assignments.map((a) => (
+          {tickets.map((ticket) => (
             <li
-              key={a.id}
+              key={ticket.id}
               className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
-                    {a.task.title}
+                    {ticket.title}
                   </h2>
                   <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    {a.task.description}
+                    {ticket.description}
                   </p>
                   <p className="mt-2 text-xs text-zinc-500">
-                    Expected ~{a.task.expectedMinutes} min · On-task path hints:{" "}
-                    {a.task.allowedUrlPatterns.join(", ")}
+                    {ticket.type} · priority {ticket.priority} · approved apps: {ticket.allowedApps.join(", ")}
                   </p>
                   <p className="mt-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Status: {a.status.replace("_", " ")}
+                    Status: {ticket.status.replace("_", " ")}
                   </p>
                 </div>
                 <Link
-                  href={`/workspace/${a.id}/dashboard`}
+                  href={`/workspace/${ticket.id}/dashboard`}
                   className="inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500"
                 >
                   Open workspace
@@ -121,9 +117,9 @@ export default function EmployeePage() {
             </li>
           ))}
         </ul>
-        {!assignments.length && !error ? (
+        {!tickets.length && !error ? (
           <p className="text-sm text-zinc-500">
-            No assignments yet. Ask HR to assign a task to your account.
+            No tickets assigned yet. Ask HR or a manager to assign one to your account.
           </p>
         ) : null}
       </main>
