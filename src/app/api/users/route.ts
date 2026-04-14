@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { orgs, users } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
 import { requireHr } from "@/lib/api/auth";
+import { sendCredentialsEmail } from "@/lib/notify/credentials-email";
 
 const roles = ["hr", "manager", "developer", "tester"] as const;
 
@@ -14,6 +15,7 @@ const createSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(roles),
+  sendCredentialsEmail: z.boolean().optional().default(true),
 });
 
 export async function GET(request: Request) {
@@ -28,8 +30,7 @@ export async function GET(request: Request) {
     query = db()
       .select()
       .from(users)
-      .where(eq(users.orgId, session.orgId))
-      .where(eq(users.role, role as (typeof roles)[number]))
+      .where(and(eq(users.orgId, session.orgId), eq(users.role, role as (typeof roles)[number])))
       .orderBy(desc(users.createdAt));
   }
 
@@ -55,6 +56,8 @@ export async function POST(request: Request) {
 
   const input = parsed.data;
   const passwordHash = await hashPassword(input.password);
+  const shouldNotifyByEmail =
+    input.sendCredentialsEmail && (input.role === "developer" || input.role === "tester");
 
   const [user] = await db()
     .insert(users)
@@ -71,5 +74,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 
-  return NextResponse.json({ user });
+  let notification: {
+    attempted: boolean;
+    sent: boolean;
+    message: string;
+  } = {
+    attempted: false,
+    sent: false,
+    message: "Email not requested for this role.",
+  };
+
+  if (shouldNotifyByEmail) {
+    notification.attempted = true;
+    const org = await db()
+      .select({ name: orgs.name })
+      .from(orgs)
+      .where(eq(orgs.id, session.orgId))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    const loginUrl = process.env.APP_LOGIN_URL ?? "http://localhost:3000/login";
+    const result = await sendCredentialsEmail({
+      to: user.email,
+      userName: user.name,
+      role: user.role,
+      temporaryPassword: input.password,
+      orgName: org?.name ?? "Your organization",
+      loginUrl,
+      createdByName: session.name,
+    });
+
+    notification = {
+      attempted: true,
+      sent: result.sent,
+      message: result.message,
+    };
+  }
+
+  return NextResponse.json({ user, notification });
 }

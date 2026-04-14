@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [userEmail, setUserEmail] = useState("jamie@acme.local");
   const [userPassword, setUserPassword] = useState("change-me-now");
   const [userRole, setUserRole] = useState("developer");
+  const [sendCredentialsEmail, setSendCredentialsEmail] = useState(true);
   const [userOrgId, setUserOrgId] = useState("");
   const [ticketTitle, setTicketTitle] = useState("Build login flow");
   const [ticketDescription, setTicketDescription] = useState(
@@ -45,6 +46,16 @@ export default function AdminPage() {
   const [assignTesterId, setAssignTesterId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const developerUsers = users.filter((user) => user.role === "developer");
+  const testerUsers = users.filter((user) => user.role === "tester");
+  const hrManagerUsers = users.filter((user) => user.role === "hr" || user.role === "manager");
+  const bugTickets = tickets.filter((ticket) => ticket.type === "bug");
+  const taskTickets = tickets.filter((ticket) => ticket.type === "task");
+
+  function countAssignedTickets(userId: string) {
+    return tickets.filter((ticket) => ticket.assignedDeveloperId === userId || ticket.testerId === userId).length;
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -116,14 +127,22 @@ export default function AdminPage() {
         email: userEmail,
         password: userPassword,
         role: userRole,
+        sendCredentialsEmail,
       }),
     });
-    const data = (await res.json()) as { error?: string };
+    const data = (await res.json()) as {
+      error?: string;
+      notification?: { attempted: boolean; sent: boolean; message: string };
+    };
     if (!res.ok) {
       setError(data.error ?? "Could not create user");
       return;
     }
-    setMessage("User created.");
+    setMessage(
+      data.notification?.attempted
+        ? `User created. ${data.notification.message}`
+        : "User created."
+    );
     await load();
   }
 
@@ -186,12 +205,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950">
+      <header className="border-b border-zinc-200 bg-gradient-to-r from-white via-indigo-50 to-cyan-50 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div>
             <p className="text-xs font-semibold uppercase text-indigo-600 dark:text-indigo-400">HR / Manager</p>
             <h1 className="text-xl font-bold text-zinc-900 dark:text-white">WorkFlowGuard control panel</h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Manage team members, assign bugs/tasks, and send credentials to developers and testers.</p>
           </div>
           <div className="flex gap-3">
             <Link href="/" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400">Home</Link>
@@ -201,6 +221,26 @@ export default function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-xs uppercase tracking-wide text-zinc-500">Organizations</p>
+            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{orgs.length}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-xs uppercase tracking-wide text-zinc-500">Team members</p>
+            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{users.length}</p>
+            <p className="text-xs text-zinc-500">HR/Manager {hrManagerUsers.length} · Dev {developerUsers.length} · Tester {testerUsers.length}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-xs uppercase tracking-wide text-zinc-500">Task tickets</p>
+            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{taskTickets.length}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="text-xs uppercase tracking-wide text-zinc-500">Bug tickets</p>
+            <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{bugTickets.length}</p>
+          </div>
+        </section>
+
         {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">{message}</p> : null}
         {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">{error}</p> : null}
 
@@ -229,9 +269,47 @@ export default function AdminPage() {
                 <option value="developer">Developer</option>
                 <option value="tester">Tester</option>
               </select>
+              <label className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={sendCredentialsEmail}
+                  onChange={(e) => setSendCredentialsEmail(e.target.checked)}
+                />
+                Email username/password to developer or tester
+              </label>
               <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Create user</button>
             </div>
           </form>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Team and assignment view</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">HR and managers can track each developer/tester and how many bugs or tasks are assigned.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Developers</h3>
+              {developerUsers.map((user) => (
+                <div key={user.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                  <p className="font-medium text-zinc-900 dark:text-white">{user.name}</p>
+                  <p className="text-xs text-zinc-500">{user.email}</p>
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Assigned tickets: {countAssignedTickets(user.id)}</p>
+                </div>
+              ))}
+              {!developerUsers.length ? <p className="text-sm text-zinc-500">No developers yet.</p> : null}
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Testers</h3>
+              {testerUsers.map((user) => (
+                <div key={user.id} className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                  <p className="font-medium text-zinc-900 dark:text-white">{user.name}</p>
+                  <p className="text-xs text-zinc-500">{user.email}</p>
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">Assigned tickets: {countAssignedTickets(user.id)}</p>
+                </div>
+              ))}
+              {!testerUsers.length ? <p className="text-sm text-zinc-500">No testers yet.</p> : null}
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">

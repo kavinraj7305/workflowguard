@@ -27,6 +27,18 @@ To learn more about Next.js, take a look at the following resources:
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
+## Credential Email Setup
+
+To send username/password details to newly created developer and tester accounts from the HR/Manager panel, configure Resend in your `.env`:
+
+```bash
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+MAIL_FROM="WorkFlowGuard <no-reply@your-domain.com>"
+APP_LOGIN_URL=http://localhost:3000/login
+```
+
+Resend has a free tier and works without SMTP setup. If these are not set, user creation still works and the API returns a message that email delivery is not configured.
+
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
