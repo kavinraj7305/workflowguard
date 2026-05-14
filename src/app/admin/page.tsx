@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { demoOrgs, demoTickets, demoUsers } from "@/lib/demo/mock-data";
 
 type Org = { id: string; name: string; slug: string };
 type User = { id: string; orgId: string; email: string; name: string; role: string };
@@ -41,18 +40,9 @@ export default function AdminOverviewPage() {
         ? ((await ticketsRes.json()) as { tickets: Ticket[] }).tickets
         : [];
 
-      const shouldUseMock =
-        orgsData.length === 0 && usersData.length === 0 && ticketsData.length === 0;
-
-      if (shouldUseMock) {
-        setOrgs(demoOrgs as Org[]);
-        setUsers(demoUsers as User[]);
-        setTickets(demoTickets as Ticket[]);
-      } else {
-        setOrgs(orgsData);
-        setUsers(usersData);
-        setTickets(ticketsData);
-      }
+      setOrgs(orgsData);
+      setUsers(usersData);
+      setTickets(ticketsData);
     } finally {
       setLoading(false);
     }
@@ -90,13 +80,31 @@ export default function AdminOverviewPage() {
   function generateAiSuggestions() {
     setIsGeneratingSuggestions(true);
     window.setTimeout(() => {
-      setAiSuggestions([
-        "Move open tickets into active sprint lanes.",
-        "Prioritize testing queue for faster closure.",
-        "Keep team assignment balanced to avoid overload.",
-      ]);
+      const suggestions: string[] = [];
+      if (openTickets.length > 0) {
+        suggestions.push(
+          `${openTickets.length} ticket(s) are open — clarify owners or move them into active work.`
+        );
+      }
+      if (testingTickets.length > 2) {
+        suggestions.push(
+          `Testing queue is ${testingTickets.length} deep — consider QA capacity or parallel review.`
+        );
+      }
+      if (bugTickets.length > taskTickets.length && bugTickets.length > 0) {
+        suggestions.push(
+          `Bugs (${bugTickets.length}) exceed tasks (${taskTickets.length}) — review root causes and stabilization work.`
+        );
+      }
+      if (inProgressTickets.length === 0 && openTickets.length > 0) {
+        suggestions.push("Nothing is in progress while tickets are open — start the next execution slice.");
+      }
+      if (suggestions.length === 0) {
+        suggestions.push("Pipeline is balanced for current volume — keep creating tickets to sustain measurable throughput.");
+      }
+      setAiSuggestions(suggestions.slice(0, 4));
       setIsGeneratingSuggestions(false);
-    }, 600);
+    }, 400);
   }
 
   return (
@@ -177,7 +185,7 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/admin/ai-assistant" className="rounded-2xl border border-indigo-500/25 bg-indigo-500/10 p-5 transition-all hover:border-indigo-500/50 hover:bg-indigo-500/15">
           <p className="text-sm font-semibold text-indigo-200">AI Assistant</p>
           <p className="mt-1 text-xs text-zinc-300">Open dedicated suggestions page</p>
@@ -198,7 +206,11 @@ export default function AdminOverviewPage() {
         </Link>
         <Link href="/admin/productivity" className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-5 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/15">
           <p className="text-sm font-semibold text-emerald-200">Productivity</p>
-          <p className="mt-1 text-xs text-zinc-300">Open full productivity dashboard</p>
+          <p className="mt-1 text-xs text-zinc-300">Live ticket pipeline and focus metrics from the database</p>
+        </Link>
+        <Link href="/admin/retention" className="rounded-2xl border border-violet-500/25 bg-violet-500/10 p-5 transition-all hover:border-violet-500/50 hover:bg-violet-500/15">
+          <p className="text-sm font-semibold text-violet-200">Retention</p>
+          <p className="mt-1 text-xs text-zinc-300">Per-developer engagement and workload risk from real activity</p>
         </Link>
         <Link href="/admin/team-mood" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-5 transition-all hover:border-cyan-500/50 hover:bg-cyan-500/15">
           <p className="text-sm font-semibold text-cyan-200">Team Mood</p>

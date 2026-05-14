@@ -77,7 +77,7 @@ export default function LoginPage() {
             Role-based access for HR, manager, developer, and tester accounts.
           </Typography>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-            {['hr', 'manager', 'developer', 'tester'].map((role) => (
+            {["hr", "manager", "developer", "tester"].map((role) => (
               <Chip key={role} label={role} color="primary" variant="outlined" />
             ))}
           </Stack>

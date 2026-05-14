@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { demoOrgs } from "@/lib/demo/mock-data";
 import { BeautifulEmptyState } from "@/components/admin/BeautifulEmptyState";
 
 type Org = { id: string; name: string; slug: string };
@@ -11,7 +10,7 @@ const inputClass =
 
 export default function AdminOrgsPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
-  const [orgName, setOrgName] = useState("Acme Studio");
+  const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,13 +21,9 @@ export default function AdminOrgsPage() {
       const res = await fetch("/api/orgs");
       if (res.ok) {
         const data = (await res.json()) as { orgs: Org[] };
-        if (data.orgs.length === 0) {
-          setOrgs(demoOrgs as Org[]);
-        } else {
-          setOrgs(data.orgs);
-        }
+        setOrgs(data.orgs);
       } else {
-        setOrgs(demoOrgs as Org[]);
+        setOrgs([]);
       }
     } finally {
       setLoading(false);

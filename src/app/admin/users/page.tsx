@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { demoOrgs, demoUsers } from "@/lib/demo/mock-data";
 import { BeautifulEmptyState } from "@/components/admin/BeautifulEmptyState";
 
 type Org = { id: string; name: string; slug: string };
@@ -23,9 +22,9 @@ const roleMeta: Record<string, { label: string; bg: string; text: string; dot: s
 export default function AdminUsersPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [userName, setUserName] = useState("Jamie Rivera");
-  const [userEmail, setUserEmail] = useState("jamie@acme.local");
-  const [userPassword, setUserPassword] = useState("change-me-now");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("developer");
   const [sendCredentialsEmail, setSendCredentialsEmail] = useState(true);
   const [userOrgId, setUserOrgId] = useState("");
@@ -50,18 +49,10 @@ export default function AdminUsersPage() {
       const ticketsData = ticketsRes.ok
         ? ((await ticketsRes.json()) as { tickets: Ticket[] }).tickets
         : [];
-      const useMock = orgsData.length === 0 && usersData.length === 0;
-      if (useMock) {
-        setOrgs(demoOrgs as Org[]);
-        setUsers(demoUsers as User[]);
-        setTickets([]);
-        setUserOrgId((prev) => prev || demoOrgs[0]?.id || "");
-      } else {
-        setOrgs(orgsData);
-        setUsers(usersData);
-        setTickets(ticketsData);
-        setUserOrgId((prev) => prev || orgsData[0]?.id || "");
-      }
+      setOrgs(orgsData);
+      setUsers(usersData);
+      setTickets(ticketsData);
+      setUserOrgId((prev) => prev || orgsData[0]?.id || "");
     } finally {
       setLoading(false);
     }
