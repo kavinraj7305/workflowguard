@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BeautifulEmptyState } from "@/components/admin/BeautifulEmptyState";
 
 type User = { id: string; name: string; email: string; role: string };
@@ -30,11 +30,75 @@ const priorityMeta: Record<string, { label: string; dot: string; text: string; b
   low:    { label: "Low",    dot: "bg-green-400",  text: "text-green-300",  bg: "bg-green-500/10 border-green-500/25" },
 };
 
+const BOARD_COLUMNS: { key: "open" | "in_progress" | "testing" | "closed"; label: string; panel: string }[] = [
+  { key: "open", label: "Open", panel: "bg-blue-500/5 border-blue-500/15" },
+  { key: "in_progress", label: "In progress", panel: "bg-amber-500/5 border-amber-500/15" },
+  { key: "testing", label: "Testing", panel: "bg-violet-500/5 border-violet-500/15" },
+  { key: "closed", label: "Closed", panel: "bg-emerald-500/5 border-emerald-500/15" },
+];
+
+function AdminTicketCard(props: {
+  ticket: Ticket;
+  onStatusChange: (ticketId: string, status: string) => void;
+  compact?: boolean;
+}) {
+  const { ticket, onStatusChange, compact } = props;
+  const p = priorityMeta[ticket.priority] ?? priorityMeta.medium;
+  return (
+    <article className={`rounded-xl border border-white/8 transition-colors hover:border-white/14 ${compact ? "p-3" : "p-4"}`}>
+      <div className={`flex flex-wrap items-start justify-between gap-2 ${compact ? "gap-2" : "gap-3"}`}>
+        <div className="min-w-0 flex-1">
+          <div className={`mb-2 flex flex-wrap items-center gap-2 ${compact ? "gap-1.5" : ""}`}>
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
+                ticket.type === "bug" ? "border-rose-500/25 bg-rose-500/10 text-rose-300" : "border-indigo-500/25 bg-indigo-500/10 text-indigo-300"
+              }`}
+            >
+              {ticket.type === "bug" ? "Bug" : "Task"}
+            </span>
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${p.bg} ${p.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />
+              {p.label}
+            </span>
+            <label className="sr-only" htmlFor={`status-${ticket.id}`}>
+              Status for {ticket.title}
+            </label>
+            <select
+              id={`status-${ticket.id}`}
+              value={ticket.status}
+              onChange={(e) => onStatusChange(ticket.id, e.target.value)}
+              className="rounded-lg border border-white/15 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500/50 focus:outline-none"
+            >
+              <option value="open">Open</option>
+              <option value="in_progress">In progress</option>
+              <option value="testing">Testing</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <h3 className={`font-medium text-white ${compact ? "text-sm leading-snug" : ""}`}>{ticket.title}</h3>
+          {!compact ? <p className="mt-1 line-clamp-1 text-sm text-zinc-400">{ticket.description}</p> : null}
+          {!compact ? (
+            <p className="mt-1.5 text-xs text-zinc-500">Apps: {ticket.allowedApps.join(", ") || "—"}</p>
+          ) : null}
+        </div>
+        <Link
+          href={`/workspace/${ticket.id}/dashboard`}
+          className={`shrink-0 rounded-lg border border-white/10 bg-white/5 font-medium text-white transition-colors hover:bg-white/10 ${compact ? "px-2 py-1 text-xs" : "rounded-xl px-3 py-1.5 text-xs"}`}
+        >
+          Workspace
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 type ActiveForm = "create" | "assign";
+type PageView = "board" | "work";
 
 export default function AdminTicketsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [pageView, setPageView] = useState<PageView>("board");
   const [activeForm, setActiveForm] = useState<ActiveForm>("create");
   const [loading, setLoading] = useState(true);
 
@@ -90,6 +154,21 @@ export default function AdminTicketsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const ticketsByColumn = useMemo(() => {
+    const cols: Record<(typeof BOARD_COLUMNS)[number]["key"], Ticket[]> = {
+      open: [],
+      in_progress: [],
+      testing: [],
+      closed: [],
+    };
+    for (const t of tickets) {
+      const k = t.status as keyof typeof cols;
+      if (k in cols) cols[k].push(t);
+      else cols.open.push(t);
+    }
+    return cols;
+  }, [tickets]);
 
   async function updateTicketStatus(ticketId: string, status: string) {
     setMessage(null);
@@ -152,26 +231,77 @@ export default function AdminTicketsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* ── Form selector tabs ───────────────────────────────── */}
-      <div className="flex gap-2">
-        {(["create", "assign"] as ActiveForm[]).map((tab) => (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        {(["board", "work"] as PageView[]).map((v) => (
           <button
-            key={tab}
+            key={v}
             type="button"
-            onClick={() => { setActiveForm(tab); setMessage(null); setError(null); }}
-            className={`rounded-xl px-5 py-2.5 text-sm font-medium capitalize transition-colors ${
-              activeForm === tab
-                ? "bg-indigo-600 text-white"
-                : "border border-white/10 bg-white/3 text-zinc-300 hover:bg-white/6"
+            onClick={() => {
+              setPageView(v);
+              setMessage(null);
+              setError(null);
+            }}
+            className={`rounded-xl px-5 py-2.5 text-sm font-medium transition-colors ${
+              pageView === v ? "bg-indigo-600 text-white" : "border border-white/10 bg-white/3 text-zinc-300 hover:bg-white/6"
             }`}
           >
-            {tab === "create" ? "New ticket" : "Reassign"}
+            {v === "board" ? "Board" : "Queue & forms"}
           </button>
         ))}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
+      {pageView === "board" ? (
+        loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : tickets.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {BOARD_COLUMNS.map((col) => (
+              <div key={col.key} className={`flex min-h-0 flex-col rounded-2xl border p-3 ${col.panel}`}>
+                <div className="mb-3 flex shrink-0 items-center justify-between">
+                  <h2 className="text-sm font-semibold text-white">{col.label}</h2>
+                  <span className="text-xs tabular-nums text-zinc-500">{ticketsByColumn[col.key].length}</span>
+                </div>
+                <div className="admin-scroll max-h-[min(70vh,40rem)] min-h-[10rem] flex-1 space-y-2 pr-1">
+                  {ticketsByColumn[col.key].map((ticket) => (
+                    <AdminTicketCard key={ticket.id} ticket={ticket} onStatusChange={(id, s) => void updateTicketStatus(id, s)} compact />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <BeautifulEmptyState
+            title="No tickets on the board"
+            hint="Switch to “Queue & forms” to create your first ticket, or seed data from the setup flow."
+          />
+        )
+      ) : null}
+
+      {pageView === "work" ? (
+        <>
+          <div className="flex gap-2">
+            {(["create", "assign"] as ActiveForm[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => {
+                  setActiveForm(tab);
+                  setMessage(null);
+                  setError(null);
+                }}
+                className={`rounded-xl px-5 py-2.5 text-sm font-medium capitalize transition-colors ${
+                  activeForm === tab ? "bg-indigo-600 text-white" : "border border-white/10 bg-white/3 text-zinc-300 hover:bg-white/6"
+                }`}
+              >
+                {tab === "create" ? "New ticket" : "Reassign"}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
         {/* ── Left: Active form ──────────────────────────────── */}
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
           {activeForm === "create" ? (
@@ -308,49 +438,9 @@ export default function AdminTicketsPage() {
             </div>
           ) : tickets.length > 0 ? (
             <div className="admin-scroll min-h-0 flex-1 space-y-3 pr-1">
-              {tickets.map((ticket) => {
-                const p = priorityMeta[ticket.priority] ?? priorityMeta.medium;
-                return (
-                  <article key={ticket.id} className="rounded-xl border border-white/8 p-4 transition-colors hover:border-white/14">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${ticket.type === "bug" ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"}`}>
-                            {ticket.type === "bug" ? "Bug" : "Task"}
-                          </span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${p.bg} ${p.text}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />
-                            {p.label}
-                          </span>
-                          <label className="sr-only" htmlFor={`status-${ticket.id}`}>
-                            Status for {ticket.title}
-                          </label>
-                          <select
-                            id={`status-${ticket.id}`}
-                            value={ticket.status}
-                            onChange={(e) => void updateTicketStatus(ticket.id, e.target.value)}
-                            className="rounded-lg border border-white/15 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500/50 focus:outline-none"
-                          >
-                            <option value="open">Open</option>
-                            <option value="in_progress">In progress</option>
-                            <option value="testing">Testing</option>
-                            <option value="closed">Closed</option>
-                          </select>
-                        </div>
-                        <h3 className="font-medium text-white">{ticket.title}</h3>
-                        <p className="mt-1 text-sm text-zinc-400 line-clamp-1">{ticket.description}</p>
-                        <p className="mt-1.5 text-xs text-zinc-500">Apps: {ticket.allowedApps.join(", ") || "—"}</p>
-                      </div>
-                      <Link
-                        href={`/workspace/${ticket.id}/dashboard`}
-                        className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10"
-                      >
-                        Open workspace
-                      </Link>
-                    </div>
-                  </article>
-                );
-              })}
+              {tickets.map((ticket) => (
+                <AdminTicketCard key={ticket.id} ticket={ticket} onStatusChange={(id, s) => void updateTicketStatus(id, s)} />
+              ))}
             </div>
           ) : (
             <BeautifulEmptyState
@@ -360,6 +450,8 @@ export default function AdminTicketsPage() {
           )}
         </div>
       </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -9,12 +9,12 @@ type NavItem = {
   href: string;
   label: string;
   exact: boolean;
-  /** If true, only HR and managers see the link */
   requireHr?: boolean;
   icon: ReactNode;
 };
 
-const allNavItems: NavItem[] = [
+/** Main product: tickets, people, performance, copilot */
+const deliveryNav: NavItem[] = [
   {
     href: "/admin",
     label: "Overview",
@@ -26,24 +26,12 @@ const allNavItems: NavItem[] = [
     ),
   },
   {
-    href: "/admin/hrm",
-    label: "HRM",
-    exact: true,
-    requireHr: true,
+    href: "/admin/tickets",
+    label: "Tickets",
+    exact: false,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 .414-.336.75-.75.75h-4.5a.75.75 0 01-.65-.38l-1.15-1.95a.75.75 0 00-.65-.38H8.25a.75.75 0 00-.65.38l-1.15 1.95a.75.75 0 01-.65.38h-4.5a.75.75 0 01-.75-.75v-4.25m16.5 0V9a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 9v5.15m16.5 0c.69 0 1.25.56 1.25 1.25v.75c0 .69-.56 1.25-1.25 1.25H3.75c-.69 0-1.25-.56-1.25-1.25v-.75c0-.69.56-1.25 1.25-1.25h16.5z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/admin/payroll",
-    label: "Payroll",
-    exact: true,
-    requireHr: true,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V6h19.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L9.568 3z M6 6h.008v.008H6V6z" />
       </svg>
     ),
   },
@@ -58,12 +46,12 @@ const allNavItems: NavItem[] = [
     ),
   },
   {
-    href: "/admin/tickets",
-    label: "Tasks",
-    exact: false,
+    href: "/admin/productivity",
+    label: "Insights",
+    exact: true,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L9.568 3z M6 6h.008v.008H6V6z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
       </svg>
     ),
   },
@@ -78,35 +66,51 @@ const allNavItems: NavItem[] = [
       </svg>
     ),
   },
+];
+
+/** HRM / payroll — secondary */
+const extraNav: NavItem[] = [
+  {
+    href: "/admin/hrm",
+    label: "HRM & leave",
+    exact: true,
+    requireHr: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4 w-4">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 .414-.336.75-.75.75h-4.5a.75.75 0 01-.65-.38l-1.15-1.95a.75.75 0 00-.65-.38H8.25a.75.75 0 00-.65.38l-1.15 1.95a.75.75 0 01-.65.38h-4.5a.75.75 0 01-.75-.75v-4.25m16.5 0V9a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 9v5.15m16.5 0c.69 0 1.25.56 1.25 1.25v.75c0 .69-.56 1.25-1.25 1.25H3.75c-.69 0-1.25-.56-1.25-1.25v-.75c0-.69.56-1.25 1.25-1.25h16.5z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/admin/payroll",
+    label: "Payroll",
+    exact: true,
+    requireHr: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4 w-4">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V6h19.5z" />
+      </svg>
+    ),
+  },
   {
     href: "/admin/team-mood",
     label: "Team mood",
     exact: true,
     requireHr: true,
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4 w-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm4.5 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
       </svg>
     ),
   },
   {
     href: "/admin/daily-report",
-    label: "Report",
+    label: "Daily report",
     exact: true,
     requireHr: true,
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4 w-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75M9.75 6.75h4.875c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125H3.375c-.621 0-1.125-.504-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125h5.25M9.75 6.75L12 4.5" />
-      </svg>
-    ),
-  },
-  {
-    href: "/admin/productivity",
-    label: "Insights",
-    exact: true,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
       </svg>
     ),
   },
@@ -115,7 +119,7 @@ const allNavItems: NavItem[] = [
     label: "Company",
     exact: true,
     icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4 w-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5v-8.25H3.75V21zm0-10.5h4.5V3.75H3.75v7.5zm6-7.5v18h4.5V3h-4.5zm6 4.5v13.5h4.5V7.5h-4.5z" />
       </svg>
     ),
@@ -125,6 +129,10 @@ const allNavItems: NavItem[] = [
 async function logout() {
   await fetch("/api/auth/logout", { method: "POST" });
   window.location.href = "/login";
+}
+
+function filterNav(items: NavItem[], hr: boolean) {
+  return items.filter((item) => !item.requireHr || hr);
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -151,14 +159,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const navItems = useMemo(() => {
-    const hr = staffRole === "hr" || staffRole === "manager";
-    return allNavItems.filter((item) => !item.requireHr || hr);
-  }, [staffRole]);
+  const hr = staffRole === "hr" || staffRole === "manager";
+  const primaryItems = useMemo(() => filterNav(deliveryNav, hr), [hr]);
+  const secondaryItems = useMemo(() => filterNav(extraNav, hr), [hr]);
+  const allForActive = useMemo(() => [...primaryItems, ...secondaryItems], [primaryItems, secondaryItems]);
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
+  }
+
+  function navLinkClass(item: NavItem, compact: boolean) {
+    const active = isActive(item);
+    const base = compact
+      ? "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-all"
+      : "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all";
+    return `${base} ${
+      active ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+    }`;
   }
 
   return (
@@ -169,7 +187,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-white">
               <path
                 fillRule="evenodd"
-                d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08z"
+                d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08a.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08z"
                 clipRule="evenodd"
               />
             </svg>
@@ -183,22 +201,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="admin-scroll min-h-0 flex-1 space-y-1 px-3 py-4">
-          <p className="mb-2 px-3 text-xs font-medium text-zinc-500">Jump to</p>
-          {navItems.map((item) => {
-            const active = isActive(item);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                  active ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-zinc-400 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            );
-          })}
+          <p className="mb-2 px-3 text-xs font-medium text-zinc-500">Delivery &amp; performance</p>
+          {primaryItems.map((item) => (
+            <Link key={item.href} href={item.href} className={navLinkClass(item, false)}>
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+
+          {secondaryItems.length > 0 ? (
+            <>
+              <p className="mb-2 mt-5 px-3 text-xs font-medium text-zinc-600">HR &amp; admin</p>
+              {secondaryItems.map((item) => (
+                <Link key={item.href} href={item.href} className={navLinkClass(item, true)}>
+                  {item.icon}
+                  {item.label}
+                </Link>
+              ))}
+            </>
+          ) : null}
         </nav>
 
         <div className="shrink-0 space-y-1 border-t border-white/8 px-3 py-4">
@@ -229,7 +250,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="min-w-0">
             <p className="truncate text-xs text-zinc-500">{orgName ? `Signed in · ${orgName}` : "Admin"}</p>
             <h1 className="truncate text-lg font-semibold leading-tight text-white">
-              {navItems.find((item) => isActive(item))?.label ??
+              {allForActive.find((item) => isActive(item))?.label ??
                 (() => {
                   const seg = pathname.replace(/^\/admin\/?/, "").split("/")[0];
                   if (!seg) return "Admin";

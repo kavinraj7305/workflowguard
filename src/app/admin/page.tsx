@@ -108,46 +108,46 @@ export default function AdminOverviewPage() {
         <p className="text-xs text-zinc-500">Overview</p>
         <h2 className="mt-1 text-2xl font-semibold text-white">{org?.name ?? "Your company"}</h2>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          One workspace for people, payroll, delivery, and a copilot that reads your real tickets and roster — not a
-          demo dataset.
+          Lead with tickets and delivery, then use Insights for flow and check-ins. HRM, payroll, and leave live in the
+          sidebar under HR &amp; admin when you need them.
         </p>
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-medium text-zinc-400">HR &amp; finance</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <Link
-            href="/admin/hrm"
-            className="group rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/15 to-transparent p-5 transition-colors hover:border-violet-400/40"
-          >
-            <p className="text-xs text-violet-300">HRM</p>
-            <p className="mt-1 font-medium text-white">Profiles &amp; leave</p>
-            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Job titles, coverage, approvals.</p>
-          </Link>
-          <Link
-            href="/admin/payroll"
-            className="group rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/15 to-transparent p-5 transition-colors hover:border-cyan-400/40"
-          >
-            <p className="text-xs text-cyan-300">Payroll</p>
-            <p className="mt-1 font-medium text-white">Pay runs</p>
-            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Per-period lines, cents-accurate.</p>
-          </Link>
-          <Link
-            href="/admin/team-mood"
-            className="group rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/15 to-transparent p-5 transition-colors hover:border-cyan-400/40"
-          >
-            <p className="text-xs text-cyan-300">Team mood</p>
-            <p className="mt-1 font-medium text-white">Workload snapshot</p>
-            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Calm / busy / overloaded by tickets.</p>
-          </Link>
-          <Link
-            href="/admin/daily-report"
-            className="group rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/15 to-transparent p-5 transition-colors hover:border-amber-400/40"
-          >
-            <p className="text-xs text-amber-300">Daily report</p>
-            <p className="mt-1 font-medium text-white">UTC day rollup</p>
-            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Opened, closed, bugs, leave, highlights.</p>
-          </Link>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-zinc-400">Tickets</h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              {tickets.length} {tickets.length === 1 ? "ticket" : "tickets"} — board and status live on the Tickets page
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/tickets"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition-colors hover:bg-indigo-500"
+            >
+              Open tickets
+            </Link>
+            <Link
+              href="/admin/productivity"
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
+            >
+              Insights
+            </Link>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Open", n: open, c: "border-blue-500/20 bg-blue-500/10 text-blue-200" },
+            { label: "In progress", n: inProgress, c: "border-amber-500/20 bg-amber-500/10 text-amber-200" },
+            { label: "Testing", n: testing, c: "border-violet-500/20 bg-violet-500/10 text-violet-200" },
+            { label: "Closed", n: closed, c: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200" },
+          ].map((x) => (
+            <div key={x.label} className={`rounded-2xl border px-4 py-4 ${x.c}`}>
+              <p className="text-xs font-medium opacity-90">{x.label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{x.n}</p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -191,50 +191,47 @@ export default function AdminOverviewPage() {
         </p>
       </div>
 
-      <div>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-medium text-zinc-400">Tasks (tickets)</h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              {tickets.length} {tickets.length === 1 ? "ticket" : "tickets"} right now
-            </p>
-          </div>
-          <Link
-            href="/admin/tickets"
-            className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/15 transition-colors hover:bg-white/15"
-          >
-            Open tasks
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { label: "Open", n: open, c: "border-blue-500/20 bg-blue-500/10 text-blue-200" },
-            { label: "In progress", n: inProgress, c: "border-amber-500/20 bg-amber-500/10 text-amber-200" },
-            { label: "Testing", n: testing, c: "border-violet-500/20 bg-violet-500/10 text-violet-200" },
-            { label: "Closed", n: closed, c: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200" },
-          ].map((x) => (
-            <div key={x.label} className={`rounded-2xl border px-4 py-4 ${x.c}`}>
-              <p className="text-xs font-medium opacity-90">{x.label}</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{x.n}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="rounded-2xl border border-white/10 bg-linear-to-br from-indigo-500/10 to-transparent p-6">
         <h3 className="text-sm font-medium text-white">Insights</h3>
         <p className="mt-1 text-sm text-zinc-400">
           Ticket flow, focus time, and a simple read on which developers might need a check-in — same org only.
         </p>
-        <Link
-          href="/admin/productivity"
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition-colors hover:bg-indigo-500"
-        >
-          View insights
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-          </svg>
-        </Link>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/admin/productivity"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition-colors hover:bg-indigo-500"
+          >
+            View insights
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+          <Link
+            href="/admin/team-mood"
+            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+          >
+            Team mood
+          </Link>
+          <Link
+            href="/admin/daily-report"
+            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+          >
+            Daily report
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/8 bg-white/3 p-5">
+        <p className="text-xs font-medium text-zinc-500">HR &amp; admin (optional)</p>
+        <p className="mt-1 text-sm text-zinc-500">
+          <Link href="/admin/hrm" className="text-violet-300 hover:underline">
+            HRM &amp; leave
+          </Link>
+          <span className="text-zinc-600"> · </span>
+          <Link href="/admin/payroll" className="text-cyan-300 hover:underline">
+            Payroll
+          </Link>
+        </p>
       </div>
     </div>
   );

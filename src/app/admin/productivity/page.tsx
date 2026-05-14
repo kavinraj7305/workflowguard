@@ -98,6 +98,26 @@ export default function AdminProductivityPage() {
           Pulled from tickets, who showed up in the workspace lately, and focus blocks people finished. Last refresh:{" "}
           {new Date(data.generatedAt).toLocaleString()}.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/admin/tickets"
+            className="rounded-xl border border-white/12 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+          >
+            Tickets board
+          </Link>
+          <Link
+            href="/admin/team-mood"
+            className="rounded-xl border border-white/12 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+          >
+            Team mood
+          </Link>
+          <Link
+            href="/admin/daily-report"
+            className="rounded-xl border border-white/12 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/10"
+          >
+            Daily report
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
