@@ -1,35 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WorkFlowGuard
 
-## Getting Started
+Employee productivity and retention tooling on top of **Next.js 16**, **Drizzle ORM**, and **Neon Postgres**. HR and managers use the admin console; developers use protected workspaces with activity and focus tracking. Metrics come from your database, not demo fixtures.
 
-First, run the development server:
+## Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 20+
+- A Postgres database (e.g. [Neon](https://neon.tech)) and `DATABASE_URL`
+- A `SESSION_SECRET` of at least 32 characters
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Environment**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   cp .env.example .env
+   ```
 
-## Learn More
+   Edit `.env`: set `DATABASE_URL`, `SESSION_SECRET`, and optionally Resend keys for invite emails (see below).
 
-To learn more about Next.js, take a look at the following resources:
+2. **Install and database schema**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npm install
+   npm run db:push
+   ```
 
-## Credential Email Setup
+   If `db:push` is not available in your environment, use:
 
-To send username/password details to newly created developer and tester accounts from the HR/Manager panel, configure Resend in your `.env`:
+   ```bash
+   npm run db:apply
+   ```
+
+3. **First-time onboarding (empty `users` table only)**
+
+   - Start the app: `npm run dev`
+   - Open [http://localhost:3000/setup](http://localhost:3000/setup) and create the first organization and HR user.
+
+   If you see **“Setup already completed”**, your database already has users (previous onboarding or `npm run db:seed`). Use [Sign in](http://localhost:3000/login) instead, or point `DATABASE_URL` at a **new empty** database to run setup again.
+
+4. **Optional demo data**
+
+   ```bash
+   npm run db:seed
+   ```
+
+   Creates a demo org, HR (`hr@demo.local`), and developer (`dev@demo.local`) — only if `hr@demo.local` does not exist.
+
+## Scripts
+
+| Command        | Description                                      |
+| -------------- | ------------------------------------------------ |
+| `npm run dev`  | Development server                               |
+| `npm run build`| Production build                                 |
+| `npm run db:push` | Push Drizzle schema to the database           |
+| `npm run db:apply` | Apply SQL from `scripts/apply-schema.ts`     |
+| `npm run db:studio` | Drizzle Studio                               |
+| `npm run db:seed`   | Optional seed (see above)                    |
+
+## Credential email (Resend)
+
+To email temporary passwords when HR creates developer or tester accounts, configure in `.env`:
 
 ```bash
 RESEND_API_KEY=re_xxxxxxxxxxxxx
@@ -37,12 +67,8 @@ MAIL_FROM="WorkFlowGuard <no-reply@your-domain.com>"
 APP_LOGIN_URL=http://localhost:3000/login
 ```
 
-Resend has a free tier and works without SMTP setup. If these are not set, user creation still works and the API returns a message that email delivery is not configured.
+If these are unset, user creation still works; the API reports that email was not sent.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Learn More
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)

@@ -13,6 +13,23 @@ type Ticket = {
   allowedApps: string[];
 };
 
+type MyProductivity = {
+  ticketPipeline: {
+    open: number;
+    in_progress: number;
+    testing: number;
+    closed: number;
+    total: number;
+  };
+  activityLast30Days: {
+    productivityScore: number;
+    performanceLabel: string;
+  };
+  lastActivityAt: string | null;
+  focusMinutes: number;
+  completedFocusSessions: number;
+};
+
 const priorityConfig: Record<
   string,
   { label: string; dot: string; text: string; bg: string }
@@ -76,24 +93,38 @@ const statusConfig: Record<
 export default function EmployeePage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<MyProductivity | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
-      const res = await fetch("/api/tickets?scope=mine");
-      if (!res.ok) {
+      const [tRes, mRes] = await Promise.all([
+        fetch("/api/tickets?scope=mine"),
+        fetch("/api/analytics/my-productivity"),
+      ]);
+      if (!tRes.ok) {
         setError("Could not load tickets");
         return;
       }
-      const data = (await res.json()) as { tickets: Ticket[] };
+      const data = (await tRes.json()) as { tickets: Ticket[] };
       setTickets(data.tickets);
+      setError(null);
+      if (mRes.ok) {
+        setMetrics((await mRes.json()) as MyProductivity);
+        setMetricsError(null);
+      } else {
+        setMetrics(null);
+        setMetricsError("Could not load productivity metrics");
+      }
     } catch {
       setError("Network error");
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   async function logout() {
@@ -131,7 +162,7 @@ export default function EmployeePage() {
                 Developer
               </p>
               <h1 className="text-lg font-bold text-white leading-tight">
-                My Tickets
+                My workspace
               </h1>
             </div>
           </div>
@@ -178,10 +209,47 @@ export default function EmployeePage() {
           </div>
         )}
 
-        {process.env.NEXT_PUBLIC_USE_MOCK === "true" && (
-          <div className="mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-            <strong>Demo hint</strong> — open a workspace, attach a screenshot,
-            and move the ticket to testing.
+        {metrics && (
+          <div className="mb-8 rounded-2xl border border-white/8 bg-white/3 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+              Your productivity (live)
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4 text-center">
+                <p className="text-2xl font-bold text-white tabular-nums">
+                  {metrics.activityLast30Days.productivityScore}
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">30-day activity score</p>
+                <p className="mt-0.5 text-xs capitalize text-cyan-300/90">
+                  {metrics.activityLast30Days.performanceLabel}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4 text-center">
+                <p className="text-2xl font-bold text-white tabular-nums">{metrics.focusMinutes}</p>
+                <p className="mt-1 text-xs text-zinc-400">Focus minutes (completed)</p>
+                <p className="mt-0.5 text-xs text-zinc-500 tabular-nums">
+                  {metrics.completedFocusSessions} session(s)
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4 text-center">
+                <p className="text-2xl font-bold text-white tabular-nums">{metrics.ticketPipeline.total}</p>
+                <p className="mt-1 text-xs text-zinc-400">Tickets assigned to you</p>
+              </div>
+              <div className="rounded-xl border border-white/6 bg-black/20 p-4 text-center">
+                <p className="text-sm font-medium text-zinc-200">
+                  {metrics.lastActivityAt
+                    ? new Date(metrics.lastActivityAt).toLocaleString()
+                    : "No activity yet"}
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">Last workspace activity</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {metricsError && (
+          <div className="mb-4 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {metricsError}
           </div>
         )}
 

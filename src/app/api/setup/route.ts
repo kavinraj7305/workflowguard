@@ -22,6 +22,12 @@ function slugify(value: string) {
     .slice(0, 48) || "workspace";
 }
 
+/** Public: whether the one-time org bootstrap has already created at least one user. */
+export async function GET() {
+  const existing = await db().select({ id: users.id }).from(users).limit(1);
+  return NextResponse.json({ setupComplete: existing.length > 0 });
+}
+
 export async function POST(request: Request) {
   let json: unknown;
   try {
@@ -37,7 +43,14 @@ export async function POST(request: Request) {
 
   const existing = await db().select({ id: users.id }).from(users).limit(1);
   if (existing.length > 0) {
-    return NextResponse.json({ error: "Setup already completed" }, { status: 409 });
+    return NextResponse.json(
+      {
+        error: "Setup already completed",
+        detail:
+          "This database already has at least one user (from a previous onboarding or seed). Sign in with that account, or use a fresh database if you need to run first-time setup again.",
+      },
+      { status: 409 }
+    );
   }
 
   const input = parsed.data;

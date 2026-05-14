@@ -1,6 +1,6 @@
 import { count } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { orgs, tickets, users } from "@/db/schema";
 import Link from "next/link";
 
 const features = [
@@ -116,10 +116,15 @@ const roles = [
 ];
 
 export default async function HomePage() {
-  const userCount = await db()
-    .select({ total: count() })
-    .from(users)
-    .then((rows) => rows[0]?.total ?? 0);
+  const [[{ total: userTotal }], [{ total: ticketTotal }], [{ total: orgTotal }]] = await Promise.all([
+    db().select({ total: count() }).from(users),
+    db().select({ total: count() }).from(tickets),
+    db().select({ total: count() }).from(orgs),
+  ]);
+
+  const userCount = Number(userTotal ?? 0);
+  const ticketCount = Number(ticketTotal ?? 0);
+  const orgCount = Number(orgTotal ?? 0);
 
   const isSetup = userCount > 0;
 
@@ -188,7 +193,7 @@ export default async function HomePage() {
         <section className="mx-auto max-w-7xl px-4 py-28 text-center sm:px-6 lg:py-36">
           <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm font-medium text-indigo-300 mb-8">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-dot-ping" />
-            Workflow management for structured teams
+            Workflow management with productivity and retention signals
           </div>
 
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-8xl">
@@ -199,9 +204,8 @@ export default async function HomePage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-300">
-            WorkFlowGuard gives every role exactly what they need — HR onboards
-            the team, developers focus inside a protected workspace, testers
-            verify and close tickets with confidence.
+            WorkFlowGuard connects onboarding, guarded workspaces, and live analytics so HR and managers can see
+            delivery health and engagement risk from real ticket and activity data.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -228,13 +232,11 @@ export default async function HomePage() {
               <p className="mt-1 text-sm text-zinc-400">accounts ready</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-white">4</p>
-              <p className="mt-1 text-sm text-zinc-400">role types</p>
+              <p className="text-4xl font-bold text-white tabular-nums">{orgCount}</p>
+              <p className="mt-1 text-sm text-zinc-400">organizations</p>
             </div>
             <div>
-              <p className="text-4xl font-bold bg-linear-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
-                ∞
-              </p>
+              <p className="text-4xl font-bold text-white tabular-nums">{ticketCount}</p>
               <p className="mt-1 text-sm text-zinc-400">tickets tracked</p>
             </div>
           </div>
@@ -424,7 +426,7 @@ export default async function HomePage() {
                 </span>
               </div>
               <p className="text-sm text-zinc-500">
-                © 2025 WorkFlowGuard · Mini project
+                © 2026 WorkFlowGuard · Productivity & retention
               </p>
               <div className="flex gap-5">
                 <Link

@@ -1,55 +1,91 @@
 "use client";
 
-import { demoTickets, demoUsers } from "@/lib/demo/mock-data";
+import { useCallback, useEffect, useState } from "react";
 
-function workloadForUser(userId: string) {
-  return demoTickets.filter(
-    (t) => t.assignedDeveloperId === userId || t.testerId === userId
-  ).length;
-}
+type Member = {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  ticketWorkload: number;
+  moodLabel: string;
+  moodStyle: string;
+};
 
-function moodForUser(userId: string) {
-  const load = workloadForUser(userId);
-  if (load >= 3) return { label: "Overloaded", style: "bg-rose-500/15 text-rose-300" };
-  if (load >= 2) return { label: "Busy", style: "bg-amber-500/15 text-amber-300" };
-  return { label: "Calm", style: "bg-emerald-500/15 text-emerald-300" };
-}
+type Payload = { members: Member[] };
 
 export default function AdminTeamMoodPage() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch("/api/analytics/org-retention");
+      if (!res.ok) {
+        setError("Could not load team data");
+        setMembers([]);
+        return;
+      }
+      const data = (await res.json()) as Payload;
+      setMembers(data.members ?? []);
+    } catch {
+      setError("Network error");
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="max-w-5xl space-y-6">
       <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-          Team Mood
-        </p>
-        <h2 className="mt-1 text-2xl font-bold text-white">
-          Per-person mood indicator
-        </h2>
+        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Team mood</p>
+        <h2 className="mt-1 text-2xl font-bold text-white">Workload snapshot</h2>
         <p className="mt-2 text-sm text-zinc-400">
-          Separate view to explain each person’s workload and mood clearly.
+          Mood labels are derived from each person&apos;s assigned ticket load (developer assignee + separate tester
+          assignments). Data comes from your database, not a demo fixture.
         </p>
       </div>
 
+      {error ? (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          {error}
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {demoUsers.map((u) => {
-          const mood = moodForUser(u.id);
-          const load = workloadForUser(u.id);
-          return (
-            <div key={u.id} className="rounded-2xl border border-white/8 bg-white/3 p-5">
-              <p className="font-semibold text-white">{u.name}</p>
-              <p className="mt-0.5 text-xs text-zinc-500">{u.email}</p>
-              <p className="mt-2 text-xs uppercase tracking-wide text-cyan-300">{u.role}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${mood.style}`}>
-                  {mood.label}
-                </span>
-                <span className="text-xs text-zinc-400">{load} tickets</span>
-              </div>
+        {members.map((u) => (
+          <div key={u.userId} className="rounded-2xl border border-white/8 bg-white/3 p-5">
+            <p className="font-semibold text-white">{u.name}</p>
+            <p className="mt-0.5 text-xs text-zinc-500">{u.email}</p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-cyan-300">{u.role}</p>
+            <div className="mt-3 flex items-center justify-between">
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.moodStyle}`}>
+                {u.moodLabel}
+              </span>
+              <span className="text-xs text-zinc-400 tabular-nums">{u.ticketWorkload} tickets</span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
+
+      {!error && members.length === 0 ? (
+        <p className="text-center text-sm text-zinc-500">No team members found for this organization.</p>
+      ) : null}
     </div>
   );
 }
-

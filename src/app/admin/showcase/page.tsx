@@ -1,43 +1,83 @@
 "use client";
 
-import { demoTickets, demoUsers } from "@/lib/demo/mock-data";
+import { useCallback, useEffect, useState } from "react";
 
-const highlights = [
-  { title: "Role-based control", value: "4 Roles", tone: "text-indigo-300 bg-indigo-500/15" },
-  { title: "Team capacity", value: "5 Members", tone: "text-violet-300 bg-violet-500/15" },
-  { title: "Active workflows", value: "4 Flows", tone: "text-amber-300 bg-amber-500/15" },
-  { title: "Polished UI", value: "Wow Mode", tone: "text-emerald-300 bg-emerald-500/15" },
-];
+type Member = {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  moodLabel: string;
+  moodStyle: string;
+};
+
+type Payload = {
+  productivityScore: number;
+  ticketPipeline: { open: number; in_progress: number; testing: number; closed: number; total: number };
+  focusMinutesOrg: number;
+  members: Member[];
+};
 
 export default function AdminShowcasePage() {
-  const inProgress = demoTickets.filter((t) => t.status === "in_progress").length;
-  const testing = demoTickets.filter((t) => t.status === "testing").length;
-  const closed = demoTickets.filter((t) => t.status === "closed").length;
-  const productivityScore = Math.round(((closed * 100) + (testing * 70) + (inProgress * 45)) / demoTickets.length);
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  function moodForRole(role: string) {
-    if (role === "hr" || role === "manager") {
-      return { label: "Calm", style: "bg-emerald-500/15 text-emerald-300" };
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/analytics/org-retention");
+      setData(res.ok ? ((await res.json()) as Payload) : null);
+    } finally {
+      setLoading(false);
     }
-    if (role === "tester") {
-      return { label: "Busy", style: "bg-amber-500/15 text-amber-300" };
-    }
-    return { label: "Focused", style: "bg-cyan-500/15 text-cyan-300" };
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading || !data) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      </div>
+    );
   }
+
+  const roleKinds = new Set(data.members.map((m) => m.role)).size;
+  const highlights = [
+    {
+      title: "Roles in use",
+      value: `${roleKinds} type(s)`,
+      tone: "text-indigo-300 bg-indigo-500/15",
+    },
+    {
+      title: "Team on record",
+      value: `${data.members.length} member(s)`,
+      tone: "text-violet-300 bg-violet-500/15",
+    },
+    {
+      title: "Tracked tickets",
+      value: `${data.ticketPipeline.total}`,
+      tone: "text-amber-300 bg-amber-500/15",
+    },
+    {
+      title: "Recorded focus",
+      value: `${data.focusMinutesOrg} min`,
+      tone: "text-emerald-300 bg-emerald-500/15",
+    },
+  ];
+
+  const p = data.ticketPipeline;
+  const productivityScore = data.productivityScore;
 
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-indigo-500/20 bg-linear-to-br from-indigo-500/12 via-[#020617] to-cyan-500/10 p-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-          Operations intelligence
-        </p>
-        <h2 className="mt-2 text-3xl font-bold text-white">
-          WorkFlowGuard Command View
-        </h2>
+        <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Operations intelligence</p>
+        <h2 className="mt-2 text-3xl font-bold text-white">WorkFlowGuard command view</h2>
         <p className="mt-2 max-w-2xl text-sm text-zinc-300">
-          This screen is purposely crafted for presentation. It summarizes the
-          full project story in a non-technical way: team, progress, outcomes,
-          and visual quality.
+          Presentation-friendly snapshot fed by the same Neon-backed analytics as productivity and retention — no
+          canned demo numbers.
         </p>
       </section>
 
@@ -56,26 +96,26 @@ export default function AdminShowcasePage() {
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
           <h3 className="text-base font-semibold text-white">Operational flow</h3>
           <ol className="mt-4 space-y-3 text-sm text-zinc-300">
-            <li>1. HR creates organization and user accounts.</li>
-            <li>2. Manager creates and assigns tickets.</li>
-            <li>3. Developer works in protected workspace + timer.</li>
-            <li>4. Tester verifies screenshot and closes ticket.</li>
+            <li>1. HR completes onboarding and invites the team.</li>
+            <li>2. Managers create and assign tickets.</li>
+            <li>3. Developers work in the protected workspace with the timer.</li>
+            <li>4. Testers verify handoff evidence and close tickets.</li>
           </ol>
         </div>
 
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
-          <h3 className="text-base font-semibold text-white">Current state</h3>
+          <h3 className="text-base font-semibold text-white">Current pipeline</h3>
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className="rounded-xl bg-amber-500/10 p-3 text-center">
-              <p className="text-xl font-bold text-amber-300">{inProgress}</p>
+              <p className="text-xl font-bold text-amber-300 tabular-nums">{p.in_progress}</p>
               <p className="text-xs text-zinc-500">In progress</p>
             </div>
             <div className="rounded-xl bg-violet-500/10 p-3 text-center">
-              <p className="text-xl font-bold text-violet-300">{testing}</p>
+              <p className="text-xl font-bold text-violet-300 tabular-nums">{p.testing}</p>
               <p className="text-xs text-zinc-500">Testing</p>
             </div>
             <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
-              <p className="text-xl font-bold text-emerald-300">{closed}</p>
+              <p className="text-xl font-bold text-emerald-300 tabular-nums">{p.closed}</p>
               <p className="text-xs text-zinc-500">Closed</p>
             </div>
           </div>
@@ -101,32 +141,39 @@ export default function AdminShowcasePage() {
                   className="fill-none stroke-emerald-400"
                   strokeWidth="8"
                   strokeDasharray={201}
-                  strokeDashoffset={201 - (201 * productivityScore) / 100}
+                  strokeDashoffset={201 - (201 * Math.min(productivityScore, 100)) / 100}
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="absolute inset-0 grid place-items-center text-sm font-bold text-white">
+              <span className="absolute inset-0 grid place-items-center text-sm font-bold text-white tabular-nums">
                 {productivityScore}
               </span>
             </div>
             <p className="text-sm text-zinc-300">
-              Team throughput is healthy with strong closure momentum.
+              Weighted from live ticket states across your organization ({p.total} total).
             </p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
-          <h3 className="text-base font-semibold text-white">AI assistant suggestions</h3>
+          <h3 className="text-base font-semibold text-white">Sample talking points</h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            Derived from the live ticket pipeline counts for this organization.
+          </p>
           <div className="mt-4 space-y-2">
-            <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200">
-              Move 1 open ticket to in-progress for smoother sprint velocity.
-            </p>
-            <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200">
-              Prioritize QA closure on testing queue to increase completion rate.
-            </p>
-            <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200">
-              Keep current developer-tester ratio; assignment balance looks stable.
-            </p>
+            {p.open > 0 ? (
+              <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200">
+                {p.open} ticket(s) are still open — align owners before dates slip.
+              </p>
+            ) : null}
+            {p.testing > 0 ? (
+              <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200">
+                {p.testing} ticket(s) in testing — keep QA unblocked for predictable releases.
+              </p>
+            ) : null}
+            {p.total === 0 ? (
+              <p className="text-sm text-zinc-500">Create tickets to unlock richer talking points.</p>
+            ) : null}
           </div>
         </div>
       </section>
@@ -134,15 +181,13 @@ export default function AdminShowcasePage() {
       <section className="rounded-2xl border border-white/8 bg-white/3 p-6">
         <h3 className="text-base font-semibold text-white">Team mood indicator</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {demoUsers.map((u) => (
-            <div key={u.id} className="rounded-xl border border-white/8 px-4 py-3">
+          {data.members.map((u) => (
+            <div key={u.userId} className="rounded-xl border border-white/8 px-4 py-3">
               <p className="font-medium text-white">{u.name}</p>
               <p className="text-xs text-zinc-500">{u.email}</p>
-              <div className="mt-2 flex items-center justify-between">
+              <div className="mt-2 flex items-center justify-between gap-2">
                 <p className="text-xs uppercase tracking-wide text-cyan-300">{u.role}</p>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${moodForRole(u.role).style}`}>
-                  {moodForRole(u.role).label}
-                </span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${u.moodStyle}`}>{u.moodLabel}</span>
               </div>
             </div>
           ))}
@@ -151,4 +196,3 @@ export default function AdminShowcasePage() {
     </div>
   );
 }
-

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { demoTickets, demoUsers } from "@/lib/demo/mock-data";
 import { BeautifulEmptyState } from "@/components/admin/BeautifulEmptyState";
 
 type User = { id: string; name: string; email: string; role: string };
@@ -47,8 +46,8 @@ export default function AdminTicketsPage() {
   const [loading, setLoading] = useState(true);
 
   // Create ticket form
-  const [ticketTitle, setTicketTitle] = useState("Build login flow");
-  const [ticketDescription, setTicketDescription] = useState("Implement the login form, validation, and error states.");
+  const [ticketTitle, setTicketTitle] = useState("");
+  const [ticketDescription, setTicketDescription] = useState("");
   const [ticketType, setTicketType] = useState("task");
   const [ticketPriority, setTicketPriority] = useState("high");
   const [ticketApps, setTicketApps] = useState("dashboard,profile,analytics");
@@ -80,20 +79,16 @@ export default function AdminTicketsPage() {
         ? ((await ticketsRes.json()) as { tickets: Ticket[] }).tickets
         : [];
 
-      const useMock = usersData.length === 0 && ticketsData.length === 0;
-      const finalUsers = useMock ? (demoUsers as User[]) : usersData;
-      const finalTickets = useMock ? (demoTickets as Ticket[]) : ticketsData;
+      setUsers(usersData);
+      setTickets(ticketsData);
 
-      setUsers(finalUsers);
-      setTickets(finalTickets);
-
-      const firstDev = finalUsers.find((u) => u.role === "developer");
-      const firstTester = finalUsers.find((u) => u.role === "tester");
+      const firstDev = usersData.find((u) => u.role === "developer");
+      const firstTester = usersData.find((u) => u.role === "tester");
       setTicketDeveloperId((prev) => prev || firstDev?.id || "");
       setTicketTesterId((prev) => prev || firstTester?.id || "");
       setAssignDeveloperId((prev) => prev || firstDev?.id || "");
       setAssignTesterId((prev) => prev || firstTester?.id || "");
-      setAssignTicketId((prev) => prev || finalTickets[0]?.id || "");
+      setAssignTicketId((prev) => prev || ticketsData[0]?.id || "");
     } finally {
       setLoading(false);
     }
