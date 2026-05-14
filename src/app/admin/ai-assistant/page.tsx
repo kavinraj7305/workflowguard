@@ -38,8 +38,9 @@ export default function AdminAiAssistantPage() {
       const data = (await res.json()) as {
         reply?: string;
         error?: string;
-        toolTrace?: ToolStep[];
-        usedOpenAi?: boolean;
+        toolTrace?: { name: string; result: unknown }[];
+        usedLlm?: boolean;
+        llmProvider?: string | null;
       };
       if (!res.ok) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.error ?? "Something went wrong." }]);
@@ -47,10 +48,16 @@ export default function AdminAiAssistantPage() {
       }
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply ?? "" }]);
       if (data.toolTrace?.length) setLastTools(data.toolTrace);
-      if (data.usedOpenAi === false) {
-        setBanner("Running in on-device routing mode. Add OPENAI_API_KEY for GPT-powered answers on top of the same tools.");
+      if (data.usedLlm === false) {
+        setBanner(
+          "No LLM key set — answers use keyword routing + the same database tools. Add **GROQ_API_KEY** (free at console.groq.com) or OPENAI_API_KEY."
+        );
       } else {
-        setBanner(null);
+        setBanner(
+          data.llmProvider
+            ? `Powered by ${data.llmProvider === "groq" ? "Groq" : data.llmProvider} with tool calls into your org data.`
+            : null
+        );
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Network error — try again." }]);

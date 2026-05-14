@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireHr } from "@/lib/api/auth";
 import { runAdminAiTool, type ToolName } from "@/lib/admin/ai-tools";
+import type { ChatMessage, ChatTool } from "@/lib/llm/openai-compatible";
+import { chatCompletionRound, resolveChatLlm } from "@/lib/llm/openai-compatible";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "tool"]),
@@ -13,11 +15,9 @@ const bodySchema = z.object({
   messages: z.array(messageSchema).min(1).max(40),
 });
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-
-const TOOLS = [
+const TOOLS: ChatTool[] = [
   {
-    type: "function" as const,
+    type: "function",
     function: {
       name: "list_open_bugs",
       description:
@@ -26,7 +26,7 @@ const TOOLS = [
     },
   },
   {
-    type: "function" as const,
+    type: "function",
     function: {
       name: "list_employees",
       description:
@@ -45,7 +45,7 @@ const TOOLS = [
     },
   },
   {
-    type: "function" as const,
+    type: "function",
     function: {
       name: "get_ticket_pipeline",
       description: "Counts of tickets by workflow status for the org (open, in progress, testing, closed).",
@@ -53,22 +53,32 @@ const TOOLS = [
     },
   },
   {
-    type: "function" as const,
+    type: "function",
     function: {
       name: "list_pending_leave",
       description: "Time-off requests waiting for approval (pending only).",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_team_mood",
+      description:
+        "Workload-based mood labels (Calm / Busy / Overloaded) for each person derived from ticket assignments.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_daily_report",
+      description:
+        "UTC-day summary: tickets opened/closed today, open bugs, pending leave, pipeline counts, and short highlights from live data.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
 ];
-
-type OaiMessage =
-  | { role: "system" | "user" | "assistant"; content?: string | null; tool_calls?: unknown }
-  | {
-      role: "tool";
-      tool_call_id: string;
-      content: string;
-    };
 
 function safeJsonParse(s: string): Record<string, unknown> {
   try {
@@ -78,48 +88,15 @@ function safeJsonParse(s: string): Record<string, unknown> {
   }
 }
 
-async function openAiRound(
-  apiKey: string,
-  messages: OaiMessage[],
-  model: string
-): Promise<{
-  content: string | null;
-  tool_calls?: { id: string; function: { name: string; arguments: string } }[];
-}> {
-  const res = await fetch(OPENAI_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.3,
-      messages: messages as unknown[],
-      tools: TOOLS,
-      tool_choice: "auto",
-    }),
-  });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(t.slice(0, 400) || `OpenAI ${res.status}`);
-  }
-
-  const data = (await res.json()) as {
-    choices?: {
-      message?: {
-        content?: string | null;
-        tool_calls?: { id: string; function: { name: string; arguments: string } }[];
-      };
-    }[];
-  };
-
-  const msg = data.choices?.[0]?.message;
-  return {
-    content: msg?.content ?? null,
-    tool_calls: msg?.tool_calls,
-  };
+function isToolName(name: string): name is ToolName {
+  return (
+    name === "list_open_bugs" ||
+    name === "list_employees" ||
+    name === "get_ticket_pipeline" ||
+    name === "list_pending_leave" ||
+    name === "get_team_mood" ||
+    name === "get_daily_report"
+  );
 }
 
 async function fallbackAssistant(orgId: string, lastUser: string) {
@@ -136,6 +113,8 @@ async function fallbackAssistant(orgId: string, lastUser: string) {
   const wantsPeople = /\b(team|employee|people|roster|staff|who works|headcount)\b/i.test(lower);
   const wantsPipeline = /\b(pipeline|status|throughput|wip|work in progress|how many ticket)\b/i.test(lower);
   const wantsLeave = /\b(leave|pto|vacation|time off|out of office|ooo)\b/i.test(lower);
+  const wantsMood = /\b(mood|morale|stress|workload|overloaded|burnout)\b/i.test(lower);
+  const wantsReport = /\b(report|summary|today|daily|what happened)\b/i.test(lower);
 
   if (wantsBugs) await run("list_open_bugs");
   if (wantsPeople) {
@@ -148,14 +127,16 @@ async function fallbackAssistant(orgId: string, lastUser: string) {
   }
   if (wantsPipeline) await run("get_ticket_pipeline");
   if (wantsLeave) await run("list_pending_leave");
+  if (wantsMood) await run("get_team_mood");
+  if (wantsReport) await run("get_daily_report");
 
   if (trace.length === 0) {
-    const p = await run("get_ticket_pipeline", {});
+    await run("get_daily_report");
     const parts = [
-      "Quick ticket counts for your org:",
-      JSON.stringify(p, null, 2),
+      "Here is your UTC-day operations snapshot from the database:",
+      JSON.stringify(trace[0]?.result ?? {}, null, 2),
       "",
-      "Try: “List open bugs”, “Who is on the team?”, “Pending leave”. With OPENAI_API_KEY set, answers are phrased in plain language on top of these tools.",
+      "Tip: ask about bugs, team mood, leave, or pipeline. Set GROQ_API_KEY (free tier) for Llama-powered answers.",
     ];
     return { reply: parts.join("\n"), toolTrace: trace };
   }
@@ -168,7 +149,7 @@ async function fallbackAssistant(orgId: string, lastUser: string) {
     lines.push("```");
     lines.push("");
   }
-  lines.push("Sourced from your live org data. Add OPENAI_API_KEY for a conversational layer.");
+  lines.push("Data is from your org. Add **GROQ_API_KEY** (recommended, free) or OPENAI_API_KEY for natural language on top of these tools.");
 
   return { reply: lines.join("\n"), toolTrace: trace };
 }
@@ -189,8 +170,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  const llm = resolveChatLlm();
 
   const lastUser = [...parsed.data.messages].reverse().find((m) => m.role === "user");
   const lastUserText = (lastUser?.content ?? "").trim();
@@ -200,22 +180,23 @@ export async function POST(request: Request) {
 
   const toolTrace: { name: string; result: unknown }[] = [];
 
-  if (!apiKey) {
+  if (!llm) {
     const out = await fallbackAssistant(session.orgId, lastUserText);
     return NextResponse.json({
       reply: out.reply,
       toolTrace: out.toolTrace,
-      usedOpenAi: false,
+      usedLlm: false,
+      llmProvider: null as string | null,
     });
   }
 
-  const system: OaiMessage = {
+  const system: ChatMessage = {
     role: "system",
     content:
       "You are WorkFlowGuard Copilot for HR and managers. You only answer using tool results about their current organization. Be concise and practical. After tools return data, summarize in plain English and mention counts. Never invent employees or tickets.",
   };
 
-  const convo: OaiMessage[] = [
+  const convo: ChatMessage[] = [
     system,
     ...parsed.data.messages
       .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "tool")
@@ -235,14 +216,21 @@ export async function POST(request: Request) {
       tool_calls?: { id: string; function: { name: string; arguments: string } }[];
     };
     try {
-      completion = await openAiRound(apiKey, convo, model);
+      completion = await chatCompletionRound({
+        url: llm.url,
+        apiKey: llm.key,
+        model: llm.model,
+        messages: convo,
+        tools: TOOLS,
+      });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "OpenAI error";
+      const msg = e instanceof Error ? e.message : "LLM error";
       const out = await fallbackAssistant(session.orgId, lastUserText);
       return NextResponse.json({
-        reply: `${out.reply}\n\n_(OpenAI unavailable: ${msg})_`,
+        reply: `${out.reply}\n\n_(LLM unavailable: ${msg})_`,
         toolTrace: [...toolTrace, ...out.toolTrace],
-        usedOpenAi: false,
+        usedLlm: false,
+        llmProvider: llm.provider,
       });
     }
 
@@ -254,19 +242,9 @@ export async function POST(request: Request) {
       });
 
       for (const tc of completion.tool_calls) {
-        const name = tc.function.name as ToolName;
+        const name = tc.function.name;
         const args = safeJsonParse(tc.function.arguments || "{}");
-        let result: unknown;
-        if (
-          name === "list_open_bugs" ||
-          name === "list_employees" ||
-          name === "get_ticket_pipeline" ||
-          name === "list_pending_leave"
-        ) {
-          result = await runAdminAiTool(session.orgId, name, args);
-        } else {
-          result = { error: "unknown_tool", name };
-        }
+        const result = isToolName(name) ? await runAdminAiTool(session.orgId, name, args) : { error: "unknown_tool", name };
         toolTrace.push({ name, result });
         convo.push({
           role: "tool",
@@ -278,7 +256,13 @@ export async function POST(request: Request) {
     }
 
     const text = completion.content?.trim() || "Done.";
-    return NextResponse.json({ reply: text, toolTrace, usedOpenAi: true, model });
+    return NextResponse.json({
+      reply: text,
+      toolTrace,
+      usedLlm: true,
+      llmProvider: llm.provider,
+      model: llm.model,
+    });
   }
 
   return NextResponse.json({ error: "Too many tool rounds" }, { status: 500 });

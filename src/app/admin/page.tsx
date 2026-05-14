@@ -115,7 +115,7 @@ export default function AdminOverviewPage() {
 
       <div>
         <h3 className="mb-3 text-sm font-medium text-zinc-400">HR &amp; finance</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Link
             href="/admin/hrm"
             className="group rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/15 to-transparent p-5 transition-colors hover:border-violet-400/40"
@@ -133,12 +133,20 @@ export default function AdminOverviewPage() {
             <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Per-period lines, cents-accurate.</p>
           </Link>
           <Link
-            href="/admin/ai-assistant"
-            className="group rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/15 to-transparent p-5 transition-colors hover:border-indigo-400/40"
+            href="/admin/team-mood"
+            className="group rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/15 to-transparent p-5 transition-colors hover:border-cyan-400/40"
           >
-            <p className="text-xs text-indigo-300">Copilot</p>
-            <p className="mt-1 font-medium text-white">AI + tools</p>
-            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Bugs, people, pipeline, leave.</p>
+            <p className="text-xs text-cyan-300">Team mood</p>
+            <p className="mt-1 font-medium text-white">Workload snapshot</p>
+            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Calm / busy / overloaded by tickets.</p>
+          </Link>
+          <Link
+            href="/admin/daily-report"
+            className="group rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/15 to-transparent p-5 transition-colors hover:border-amber-400/40"
+          >
+            <p className="text-xs text-amber-300">Daily report</p>
+            <p className="mt-1 font-medium text-white">UTC day rollup</p>
+            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Opened, closed, bugs, leave, highlights.</p>
           </Link>
         </div>
       </div>

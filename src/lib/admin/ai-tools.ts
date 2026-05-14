@@ -1,10 +1,18 @@
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { employeeProfiles, leaveRequests, tickets, users } from "@/db/schema";
+import { moodFromWorkload } from "@/lib/analytics/mood";
+import { buildDailyReport } from "@/lib/reports/daily";
 
 const roles = ["hr", "manager", "developer", "tester"] as const;
 
-export type ToolName = "list_open_bugs" | "list_employees" | "get_ticket_pipeline" | "list_pending_leave";
+export type ToolName =
+  | "list_open_bugs"
+  | "list_employees"
+  | "get_ticket_pipeline"
+  | "list_pending_leave"
+  | "get_team_mood"
+  | "get_daily_report";
 
 export async function runAdminAiTool(orgId: string, name: ToolName, args: Record<string, unknown>) {
   switch (name) {
@@ -79,6 +87,47 @@ export async function runAdminAiTool(orgId: string, name: ToolName, args: Record
         .orderBy(desc(leaveRequests.createdAt))
         .limit(30);
       return { requests: rows, count: rows.length };
+    }
+    case "get_team_mood": {
+      const orgUsers = await db()
+        .select({ id: users.id, name: users.name, email: users.email, role: users.role })
+        .from(users)
+        .where(eq(users.orgId, orgId));
+
+      const orgTicketRows = await db()
+        .select({
+          assignedDeveloperId: tickets.assignedDeveloperId,
+          testerId: tickets.testerId,
+        })
+        .from(tickets)
+        .where(eq(tickets.orgId, orgId));
+
+      const workloadByUser = new Map<string, number>();
+      function bump(uid: string | null) {
+        if (!uid) return;
+        workloadByUser.set(uid, (workloadByUser.get(uid) ?? 0) + 1);
+      }
+      for (const t of orgTicketRows) {
+        bump(t.assignedDeveloperId);
+        if (t.testerId && t.testerId !== t.assignedDeveloperId) bump(t.testerId);
+      }
+
+      const members = orgUsers.map((u) => {
+        const load = workloadByUser.get(u.id) ?? 0;
+        const mood = moodFromWorkload(load);
+        return {
+          userId: u.id,
+          name: u.name,
+          role: u.role,
+          ticketWorkload: load,
+          moodLabel: mood.label,
+        };
+      });
+      return { members, count: members.length };
+    }
+    case "get_daily_report": {
+      const report = await buildDailyReport(orgId);
+      return report;
     }
     default:
       return { error: "unknown_tool" };
