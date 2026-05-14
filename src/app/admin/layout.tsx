@@ -1,10 +1,20 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  exact: boolean;
+  /** If true, only HR and managers see the link */
+  requireHr?: boolean;
+  icon: ReactNode;
+};
+
+const allNavItems: NavItem[] = [
   {
     href: "/admin",
     label: "Overview",
@@ -12,6 +22,28 @@ const navItems = [
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/admin/hrm",
+    label: "HRM",
+    exact: true,
+    requireHr: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 .414-.336.75-.75.75h-4.5a.75.75 0 01-.65-.38l-1.15-1.95a.75.75 0 00-.65-.38H8.25a.75.75 0 00-.65.38l-1.15 1.95a.75.75 0 01-.65.38h-4.5a.75.75 0 01-.75-.75v-4.25m16.5 0V9a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 9v5.15m16.5 0c.69 0 1.25.56 1.25 1.25v.75c0 .69-.56 1.25-1.25 1.25H3.75c-.69 0-1.25-.56-1.25-1.25v-.75c0-.69.56-1.25 1.25-1.25h16.5z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/admin/payroll",
+    label: "Payroll",
+    exact: true,
+    requireHr: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V6h19.5z" />
       </svg>
     ),
   },
@@ -32,6 +64,17 @@ const navItems = [
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L9.568 3z M6 6h.008v.008H6V6z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/admin/ai-assistant",
+    label: "Copilot",
+    exact: true,
+    requireHr: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className="h-4.5 w-4.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
       </svg>
     ),
   },
@@ -65,14 +108,18 @@ async function logout() {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [orgName, setOrgName] = useState<string | null>(null);
+  const [staffRole, setStaffRole] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(async () => {
       try {
         const res = await fetch("/api/auth/me");
-        const data = (await res.json()) as { org?: { name: string } | null };
-        if (!cancelled && data.org?.name) setOrgName(data.org.name);
+        const data = (await res.json()) as { org?: { name: string } | null; user?: { role: string } | null };
+        if (!cancelled) {
+          if (data.org?.name) setOrgName(data.org.name);
+          if (data.user?.role) setStaffRole(data.user.role);
+        }
       } catch {
         /* ignore */
       }
@@ -82,7 +129,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  function isActive(item: (typeof navItems)[0]) {
+  const navItems = useMemo(() => {
+    const hr = staffRole === "hr" || staffRole === "manager";
+    return allNavItems.filter((item) => !item.requireHr || hr);
+  }, [staffRole]);
+
+  function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
   }
@@ -155,7 +207,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="min-w-0">
             <p className="truncate text-xs text-zinc-500">{orgName ? `Signed in · ${orgName}` : "Admin"}</p>
             <h1 className="truncate text-lg font-semibold leading-tight text-white">
-              {navItems.find((item) => isActive(item))?.label ?? "Admin"}
+              {navItems.find((item) => isActive(item))?.label ??
+                (() => {
+                  const seg = pathname.replace(/^\/admin\/?/, "").split("/")[0];
+                  if (!seg) return "Admin";
+                  return seg
+                    .split("-")
+                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(" ");
+                })()}
             </h1>
           </div>
         </header>

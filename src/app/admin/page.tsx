@@ -108,9 +108,39 @@ export default function AdminOverviewPage() {
         <p className="text-xs text-zinc-500">Overview</p>
         <h2 className="mt-1 text-2xl font-semibold text-white">{org?.name ?? "Your company"}</h2>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          This screen is just your org: headcount by group, how tickets are spread, and a link to the numbers page.
-          Add someone from a card if you already know their role.
+          One workspace for people, payroll, delivery, and a copilot that reads your real tickets and roster — not a
+          demo dataset.
         </p>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-zinc-400">HR &amp; finance</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link
+            href="/admin/hrm"
+            className="group rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/15 to-transparent p-5 transition-colors hover:border-violet-400/40"
+          >
+            <p className="text-xs text-violet-300">HRM</p>
+            <p className="mt-1 font-medium text-white">Profiles &amp; leave</p>
+            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Job titles, coverage, approvals.</p>
+          </Link>
+          <Link
+            href="/admin/payroll"
+            className="group rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/15 to-transparent p-5 transition-colors hover:border-cyan-400/40"
+          >
+            <p className="text-xs text-cyan-300">Payroll</p>
+            <p className="mt-1 font-medium text-white">Pay runs</p>
+            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Per-period lines, cents-accurate.</p>
+          </Link>
+          <Link
+            href="/admin/ai-assistant"
+            className="group rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/15 to-transparent p-5 transition-colors hover:border-indigo-400/40"
+          >
+            <p className="text-xs text-indigo-300">Copilot</p>
+            <p className="mt-1 font-medium text-white">AI + tools</p>
+            <p className="mt-2 text-xs text-zinc-500 group-hover:text-zinc-400">Bugs, people, pipeline, leave.</p>
+          </Link>
+        </div>
       </div>
 
       <div>

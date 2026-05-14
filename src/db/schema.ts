@@ -24,6 +24,10 @@ export const ticketTypeEnum = pgEnum("ticket_type", ["task", "bug"]);
 
 export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "medium", "high", "urgent"]);
 
+export const payrollPaymentStatusEnum = pgEnum("payroll_payment_status", ["draft", "approved", "paid"]);
+
+export const leaveRequestStatusEnum = pgEnum("leave_request_status", ["pending", "approved", "rejected"]);
+
 export const orgs = pgTable(
   "orgs",
   {
@@ -145,9 +149,79 @@ export const ticketFocusSessions = pgTable("ticket_focus_sessions", {
   breakMinutes: integer("break_minutes").notNull().default(5),
 });
 
+/** HR record per login user (one row per user). */
+export const employeeProfiles = pgTable(
+  "employee_profiles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => orgs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    jobTitle: text("job_title").notNull().default(""),
+    department: text("department").notNull().default(""),
+    hireDate: text("hire_date"),
+    workLocation: text("work_location").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [uniqueIndex("employee_profiles_user_id_unique").on(t.userId)]
+);
+
+/** Simplified payroll line per person per pay period (amounts in cents). */
+export const payrollPayments = pgTable(
+  "payroll_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => orgs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    payPeriod: text("pay_period").notNull(),
+    grossCents: integer("gross_cents").notNull(),
+    deductionsCents: integer("deductions_cents").notNull().default(0),
+    netCents: integer("net_cents").notNull(),
+    status: payrollPaymentStatusEnum("status").notNull().default("draft"),
+    notes: text("notes").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("payroll_payments_org_user_period_unique").on(t.orgId, t.userId, t.payPeriod)]
+);
+
+export const leaveRequests = pgTable("leave_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => orgs.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  kind: text("kind").notNull().default("pto"),
+  reason: text("reason").notNull().default(""),
+  status: leaveRequestStatusEnum("status").notNull().default("pending"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  decidedById: uuid("decided_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const orgsRelations = relations(orgs, ({ many }) => ({
   users: many(users),
   tickets: many(tickets),
+  employeeProfiles: many(employeeProfiles),
+  payrollPayments: many(payrollPayments),
+  leaveRequests: many(leaveRequests),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -158,6 +232,49 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   createdTickets: many(tickets),
   assignedTickets: many(tickets),
   testerTickets: many(tickets),
+  employeeProfile: one(employeeProfiles, {
+    fields: [users.id],
+    references: [employeeProfiles.userId],
+  }),
+  payrollPayments: many(payrollPayments),
+  leaveRequests: many(leaveRequests),
+}));
+
+export const employeeProfilesRelations = relations(employeeProfiles, ({ one }) => ({
+  org: one(orgs, {
+    fields: [employeeProfiles.orgId],
+    references: [orgs.id],
+  }),
+  user: one(users, {
+    fields: [employeeProfiles.userId],
+    references: [users.id],
+  }),
+}));
+
+export const payrollPaymentsRelations = relations(payrollPayments, ({ one }) => ({
+  org: one(orgs, {
+    fields: [payrollPayments.orgId],
+    references: [orgs.id],
+  }),
+  user: one(users, {
+    fields: [payrollPayments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
+  org: one(orgs, {
+    fields: [leaveRequests.orgId],
+    references: [orgs.id],
+  }),
+  user: one(users, {
+    fields: [leaveRequests.userId],
+    references: [users.id],
+  }),
+  decidedBy: one(users, {
+    fields: [leaveRequests.decidedById],
+    references: [users.id],
+  }),
 }));
 
 export const ticketsRelations = relations(tickets, ({ one }) => ({
