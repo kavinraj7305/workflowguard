@@ -39,6 +39,10 @@ APP_LOGIN_URL=http://localhost:3000/login
 
 Resend has a free tier and works without SMTP setup. If these are not set, user creation still works and the API returns a message that email delivery is not configured.
 
+## Browser extension (tab tracking)
+
+Developers can load the unpacked Chrome extension from `browser-extension/` and paste a token from the workspace (**Generate extension token**). See `browser-extension/README.md` for steps.
+
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel

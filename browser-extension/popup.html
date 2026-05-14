@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WorkFlowGuard Tracker</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 320px;
+        margin: 0;
+        padding: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 12px;
+      }
+      label {
+        display: block;
+        margin-top: 8px;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+      input,
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 4px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        border: 1px solid #334155;
+        background: #020617;
+        color: #f8fafc;
+        font-size: 11px;
+      }
+      textarea {
+        min-height: 56px;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      button {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .primary {
+        background: #0284c7;
+        color: white;
+      }
+      .secondary {
+        background: #334155;
+        color: #e2e8f0;
+      }
+      .danger {
+        background: #7f1d1d;
+        color: #fecaca;
+      }
+      .muted {
+        color: #64748b;
+        margin-top: 8px;
+        line-height: 1.4;
+      }
+      .ok {
+        color: #4ade80;
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="font-weight: 700; color: #38bdf8; margin-bottom: 4px">WorkFlowGuard Tracker</div>
+    <p class="muted">Paste the token from the developer workspace, set your app URL, save, then turn tracking on.</p>
+
+    <label for="baseUrl">API base URL</label>
+    <input id="baseUrl" type="text" placeholder="http://localhost:3000" autocomplete="off" />
+
+    <label for="token">Extension token (JWT)</label>
+    <textarea id="token" placeholder="eyJ…" spellcheck="false"></textarea>
+
+    <label for="ticketId">Ticket ID (optional if inside token)</label>
+    <input id="ticketId" type="text" placeholder="uuid" autocomplete="off" />
+
+    <div class="row">
+      <button type="button" class="primary" id="save">Save</button>
+    </div>
+
+    <div class="row">
+      <button type="button" class="secondary" id="toggleTracking">Start tracking</button>
+      <button type="button" class="danger" id="toggleBreak">Break: off</button>
+    </div>
+
+    <div id="status" class="muted"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

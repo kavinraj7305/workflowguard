@@ -3,8 +3,8 @@ import { z } from "zod";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { ticketActivityEvents, tickets } from "@/db/schema";
-import { requireEmployee } from "@/lib/api/auth";
-import { getDeveloperTicket } from "@/lib/workflow-access";
+import { resolveActivityClient } from "@/lib/api/resolve-activity-client";
+import { parseBearerAuth } from "@/lib/auth/extension-token";
 import { summarizeTicketActivity } from "@/lib/ticket-analytics";
 
 const eventSchema = z.object({
@@ -29,20 +29,17 @@ const eventSchema = z.object({
 
 type Params = { params: Promise<{ ticketId: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
-  const session = await requireEmployee();
-  if (session instanceof NextResponse) return session;
-
+export async function GET(request: Request, { params }: Params) {
   const { ticketId } = await params;
-  const ticket = await getDeveloperTicket(ticketId, session.orgId, session.sub);
-  if (!ticket) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const client = await resolveActivityClient(request, ticketId);
+  if (client instanceof NextResponse) return client;
 
   const events = await db()
     .select()
     .from(ticketActivityEvents)
-    .where(and(eq(ticketActivityEvents.ticketId, ticketId), eq(ticketActivityEvents.userId, session.sub)))
+    .where(
+      and(eq(ticketActivityEvents.ticketId, ticketId), eq(ticketActivityEvents.userId, client.sub))
+    )
     .orderBy(desc(ticketActivityEvents.createdAt));
 
   return NextResponse.json({
@@ -52,14 +49,10 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const session = await requireEmployee();
-  if (session instanceof NextResponse) return session;
-
   const { ticketId } = await params;
-  const ticket = await getDeveloperTicket(ticketId, session.orgId, session.sub);
-  if (!ticket) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const client = await resolveActivityClient(request, ticketId);
+  if (client instanceof NextResponse) return client;
+  const { ticket, sub } = client;
 
   let json: unknown;
   try {
@@ -93,18 +86,21 @@ export async function POST(request: Request, { params }: Params) {
     .insert(ticketActivityEvents)
     .values({
       ticketId,
-      userId: session.sub,
+      userId: sub,
       eventType: payload.eventType,
       pathOrUrl: payload.pathOrUrl ?? null,
       resourceName: payload.resourceName ?? null,
-      metadata: payload.metadata ?? {},
+      metadata: {
+        ...(payload.metadata ?? {}),
+        ...(parseBearerAuth(request) ? { source: "browser_extension" as const } : {}),
+      },
     })
     .returning();
 
   const events = await db()
     .select()
     .from(ticketActivityEvents)
-    .where(and(eq(ticketActivityEvents.ticketId, ticketId), eq(ticketActivityEvents.userId, session.sub)))
+    .where(and(eq(ticketActivityEvents.ticketId, ticketId), eq(ticketActivityEvents.userId, sub)))
     .orderBy(desc(ticketActivityEvents.createdAt));
 
   return NextResponse.json({

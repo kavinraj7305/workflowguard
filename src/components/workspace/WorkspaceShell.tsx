@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WorkspaceActivityTracker } from "./WorkspaceActivityTracker";
 import { PomodoroTimer } from "./PomodoroTimer";
+import { ExtensionLinkPanel } from "./ExtensionLinkPanel";
 
 type Props = {
   ticketId: string;
@@ -147,9 +148,10 @@ export function WorkspaceShell({
         </div>
       </header>
 
-      {/* Pomodoro */}
-      <div className="mx-auto w-full max-w-5xl px-4 pt-5 sm:px-6">
+      {/* Pomodoro + extension */}
+      <div className="mx-auto w-full max-w-5xl space-y-4 px-4 pt-5 sm:px-6">
         <PomodoroTimer ticketId={ticketId} />
+        <ExtensionLinkPanel ticketId={ticketId} />
       </div>
 
       {/* Page content */}
