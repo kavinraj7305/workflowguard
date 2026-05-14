@@ -72,8 +72,9 @@ export default function AdminAiAssistantPage() {
         <p className="text-xs text-zinc-500">Copilot</p>
         <h2 className="mt-1 text-2xl font-semibold text-white">WorkFlowGuard assistant</h2>
         <p className="mt-2 text-sm text-zinc-400">
-          Ask about open bugs, who works here, ticket flow, or pending leave. The server calls your org data first —
-          nothing generic or canned.
+          Ask about open bugs, who works here, ticket flow, pending leave, <strong className="text-zinc-300">team mood</strong>, or the{" "}
+          <strong className="text-zinc-300">daily report</strong>. With a free <strong className="text-zinc-300">Groq</strong> key the
+          model calls the same tools against your org — nothing canned.
         </p>
       </div>
 
