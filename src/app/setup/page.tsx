@@ -15,6 +15,12 @@ import {
   Typography,
 } from "@mui/material";
 
+type SetupStats = {
+  signupAvailable?: boolean;
+  organizationCount?: number;
+  userCount?: number;
+};
+
 export default function SetupPage() {
   const router = useRouter();
   const [orgName, setOrgName] = useState("");
@@ -23,22 +29,17 @@ export default function SetupPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const [alreadySetup, setAlreadySetup] = useState(false);
+  const [stats, setStats] = useState<SetupStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(async () => {
       try {
         const res = await fetch("/api/setup");
-        const data = (await res.json()) as { setupComplete?: boolean };
-        if (!cancelled && data.setupComplete) {
-          setAlreadySetup(true);
-        }
+        const data = (await res.json()) as SetupStats;
+        if (!cancelled) setStats(data);
       } catch {
-        /* ignore — show form; POST will still enforce */
-      } finally {
-        if (!cancelled) setStatusLoading(false);
+        if (!cancelled) setStats({});
       }
     });
     return () => {
@@ -61,12 +62,7 @@ export default function SetupPage() {
           adminPassword,
         }),
       });
-      const data = (await res.json()) as { error?: string; detail?: string };
-      if (res.status === 409) {
-        setAlreadySetup(true);
-        setError(null);
-        return;
-      }
+      const data = (await res.json()) as { error?: string; detail?: string; code?: string };
       if (!res.ok) {
         setError(data.detail ?? data.error ?? "Setup failed");
         return;
@@ -79,6 +75,9 @@ export default function SetupPage() {
       setLoading(false);
     }
   }
+
+  const otherOrgs =
+    typeof stats?.organizationCount === "number" && stats.organizationCount > 0;
 
   return (
     <Box
@@ -96,84 +95,66 @@ export default function SetupPage() {
               <Typography variant="overline" sx={{ color: "secondary.main", letterSpacing: 3 }}>
                 WorkFlowGuard
               </Typography>
-              <Typography variant="h4">Organization onboarding</Typography>
+              <Typography variant="h4">Create your organization</Typography>
               <Typography sx={{ color: "grey.300" }}>
-                Connect your Neon database via <code style={{ fontSize: "0.85em" }}>DATABASE_URL</code>, then create
-                the first organization and HR account. You will land in the admin console to add managers, developers,
-                testers, and tickets — all metrics read from the database.
+                Multi-tenant onboarding: each submission creates a <strong>new</strong> organization and its first HR
+                account on this server. Data is isolated by organization. Use a <strong>unique email</strong> that is
+                not already registered — then use{" "}
+                <Link href="/login" style={{ color: "inherit", textDecoration: "underline" }}>
+                  Sign in
+                </Link>
+                .
               </Typography>
             </Stack>
 
-            {statusLoading ? (
-              <Typography sx={{ color: "grey.400", py: 2 }}>Checking setup status…</Typography>
-            ) : alreadySetup ? (
-              <Stack spacing={2}>
-                <Alert severity="info">
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    First-time setup is already done for this database
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "grey.200", mb: 1.5 }}>
-                    At least one user already exists (for example from an earlier onboarding or{" "}
-                    <code style={{ fontSize: "0.8em" }}>npm run db:seed</code>). The onboarding form cannot run again
-                    on the same database. Sign in with your HR or manager account, or point{" "}
-                    <code style={{ fontSize: "0.8em" }}>DATABASE_URL</code> at a new empty database if you need a clean
-                    workspace.
-                  </Typography>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ pt: 0.5 }}>
-                    <Button component={Link} href="/login" variant="contained" size="medium">
-                      Sign in
-                    </Button>
-                    <Button component={Link} href="/" variant="outlined" color="inherit" size="medium">
-                      Back to home
-                    </Button>
-                  </Stack>
-                </Alert>
-              </Stack>
-            ) : (
-              <Box component="form" onSubmit={onSubmit} sx={{ display: "grid", gap: 2 }}>
-                <TextField
-                  label="Organization name"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  required
-                />
-                <TextField
-                  label="HR name"
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
-                  required
-                />
-                <TextField
-                  label="HR email"
-                  type="email"
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  required
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  required
-                  helperText="Minimum 8 characters."
-                />
-                {error ? <Alert severity="error">{error}</Alert> : null}
-                <Button type="submit" variant="contained" size="large" disabled={loading}>
-                  {loading ? "Creating workspace…" : "Create organization"}
-                </Button>
-                <Button component={Link} href="/login" variant="text">
-                  Back to sign in
-                </Button>
-              </Box>
-            )}
-
-            {!alreadySetup && !statusLoading ? (
-              <Alert severity="info" sx={{ mt: 3 }}>
-                This creates the first HR account and the initial organization record. It only runs when the user table
-                is empty.
+            {otherOrgs ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Onboarding new Organization... 
               </Alert>
             ) : null}
+
+            <Box component="form" onSubmit={onSubmit} sx={{ display: "grid", gap: 2 }}>
+              <TextField
+                label="Organization name"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                required
+              />
+              <TextField
+                label="HR admin name"
+                value={adminName}
+                onChange={(e) => setAdminName(e.target.value)}
+                required
+              />
+              <TextField
+                label="HR admin email (login)"
+                type="email"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                required
+                helperText="Must be unique across all organizations on this server."
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+                helperText="Minimum 8 characters."
+              />
+              {error ? <Alert severity="error">{error}</Alert> : null}
+              <Button type="submit" variant="contained" size="large" disabled={loading}>
+                {loading ? "Creating organization…" : "Create organization & sign in"}
+              </Button>
+              <Button component={Link} href="/login" variant="text">
+                Already have an account? Sign in
+              </Button>
+            </Box>
+
+            <Alert severity="info" sx={{ mt: 3 }}>
+              After creation you are signed in as HR for the new org. Add managers, developers, testers, and tickets
+              from the admin console.
+            </Alert>
           </CardContent>
         </Card>
       </Container>

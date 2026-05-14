@@ -117,7 +117,7 @@ export default function LoginPage() {
               </Box>
 
               <Typography sx={{ mt: 2, color: "grey.400", fontSize: 14 }}>
-                If the database is empty, use the onboarding flow first.
+                New team? Create another organization (unique HR email) from onboarding.
               </Typography>
             </CardContent>
           </Card>
@@ -128,7 +128,8 @@ export default function LoginPage() {
                 Need an organization?
               </Typography>
               <Typography sx={{ color: "grey.300", mb: 3 }}>
-                Start organization onboarding, create the first HR account, then add managers, developers, and testers.
+                Register a new organization and HR admin, or add another tenant alongside existing ones — each org is
+                isolated; HR email must be unique on this server.
               </Typography>
               <Button component={Link} href="/setup" variant="outlined" color="primary" fullWidth size="large">
                 Organization onboarding

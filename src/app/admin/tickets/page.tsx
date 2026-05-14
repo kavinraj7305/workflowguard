@@ -30,13 +30,6 @@ const priorityMeta: Record<string, { label: string; dot: string; text: string; b
   low:    { label: "Low",    dot: "bg-green-400",  text: "text-green-300",  bg: "bg-green-500/10 border-green-500/25" },
 };
 
-const statusMeta: Record<string, { label: string; dot: string; text: string; bg: string }> = {
-  open:        { label: "Open",        dot: "bg-blue-400",    text: "text-blue-300",    bg: "bg-blue-500/10 border-blue-500/25" },
-  in_progress: { label: "In progress", dot: "bg-amber-400",   text: "text-amber-300",   bg: "bg-amber-500/10 border-amber-500/25" },
-  testing:     { label: "Testing",     dot: "bg-violet-400",  text: "text-violet-300",  bg: "bg-violet-500/10 border-violet-500/25" },
-  closed:      { label: "Closed",      dot: "bg-emerald-400", text: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/25" },
-};
-
 type ActiveForm = "create" | "assign";
 
 export default function AdminTicketsPage() {
@@ -98,6 +91,25 @@ export default function AdminTicketsPage() {
     void load();
   }, [load]);
 
+  async function updateTicketStatus(ticketId: string, status: string) {
+    setMessage(null);
+    setError(null);
+    const res = await fetch(`/api/tickets/${ticketId}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Could not update status");
+      return;
+    }
+    setMessage("Status saved.");
+    await load();
+  }
+
+  const assignDisabled = tickets.length === 0 || !assignTicketId || !assignDeveloperId;
+
   async function createTicket(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
@@ -120,7 +132,7 @@ export default function AdminTicketsPage() {
     });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) { setError(data.error ?? "Could not create ticket"); return; }
-    setMessage("Ticket created successfully.");
+    setMessage("Ticket saved.");
     await load();
   }
 
@@ -135,7 +147,7 @@ export default function AdminTicketsPage() {
     });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) { setError(data.error ?? "Could not assign ticket"); return; }
-    setMessage("Ticket assignment updated.");
+    setMessage("Assignments saved.");
     await load();
   }
 
@@ -148,13 +160,13 @@ export default function AdminTicketsPage() {
             key={tab}
             type="button"
             onClick={() => { setActiveForm(tab); setMessage(null); setError(null); }}
-            className={`rounded-xl px-5 py-2.5 text-sm font-semibold capitalize transition-all ${
+            className={`rounded-xl px-5 py-2.5 text-sm font-medium capitalize transition-colors ${
               activeForm === tab
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white"
                 : "border border-white/10 bg-white/3 text-zinc-300 hover:bg-white/6"
             }`}
           >
-            {tab === "create" ? "Create ticket" : "Reassign ticket"}
+            {tab === "create" ? "New ticket" : "Reassign"}
           </button>
         ))}
       </div>
@@ -170,9 +182,9 @@ export default function AdminTicketsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-white">Create ticket</h2>
+                <h2 className="text-base font-medium text-white">New ticket</h2>
               </div>
-              <p className="mb-5 text-sm text-zinc-400">Define a new task or bug and optionally assign it immediately.</p>
+              <p className="mb-5 text-sm text-zinc-400">Add a task or bug. You can assign a dev and tester now or come back later.</p>
               <form onSubmit={createTicket} className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">Title</label>
@@ -193,10 +205,10 @@ export default function AdminTicketsPage() {
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">Priority</label>
                     <select className={selectClass} value={ticketPriority} onChange={(e) => setTicketPriority(e.target.value)}>
-                      <option value="urgent">🔴 Urgent</option>
-                      <option value="high">🟠 High</option>
-                      <option value="medium">🟡 Medium</option>
-                      <option value="low">🟢 Low</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
                     </select>
                   </div>
                 </div>
@@ -228,8 +240,8 @@ export default function AdminTicketsPage() {
                 {message && <p className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
                 {error && <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
-                <button type="submit" className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500">
-                  Create ticket
+                <button type="submit" className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+                  Save ticket
                 </button>
               </form>
             </>
@@ -241,9 +253,9 @@ export default function AdminTicketsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                   </svg>
                 </div>
-                <h2 className="text-base font-semibold text-white">Reassign ticket</h2>
+                <h2 className="text-base font-medium text-white">Reassign</h2>
               </div>
-              <p className="mb-5 text-sm text-zinc-400">Update the developer or tester assignment on an existing ticket.</p>
+              <p className="mb-5 text-sm text-zinc-400">Pick a ticket and change who owns delivery or QA.</p>
               <form onSubmit={assignTicket} className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">Ticket</label>
@@ -269,8 +281,12 @@ export default function AdminTicketsPage() {
                 {message && <p className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
                 {error && <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
-                <button type="submit" className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500">
-                  Update assignment
+                <button
+                  type="submit"
+                  disabled={assignDisabled}
+                  className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:pointer-events-none disabled:opacity-40"
+                >
+                  Save assignment
                 </button>
               </form>
             </>
@@ -278,10 +294,10 @@ export default function AdminTicketsPage() {
         </div>
 
         {/* ── Right: Tickets list ─────────────────────────────── */}
-        <div className="rounded-2xl border border-white/8 bg-white/3 p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">All tickets</h2>
-            <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+        <div className="flex max-h-[min(65vh,36rem)] min-h-0 flex-col rounded-2xl border border-white/8 bg-white/3 p-6 lg:max-h-[calc(100dvh-11rem)]">
+          <div className="mb-5 flex shrink-0 items-center justify-between">
+            <h2 className="text-base font-medium text-white">All tickets</h2>
+            <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-300">
               {tickets.length} total
             </span>
           </div>
@@ -291,36 +307,45 @@ export default function AdminTicketsPage() {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
             </div>
           ) : tickets.length > 0 ? (
-            <div className="space-y-3">
+            <div className="admin-scroll min-h-0 flex-1 space-y-3 pr-1">
               {tickets.map((ticket) => {
                 const p = priorityMeta[ticket.priority] ?? priorityMeta.medium;
-                const s = statusMeta[ticket.status] ?? statusMeta.open;
                 return (
                   <article key={ticket.id} className="rounded-xl border border-white/8 p-4 transition-colors hover:border-white/14">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${ticket.type === "bug" ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"}`}>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${ticket.type === "bug" ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-indigo-500/10 border-indigo-500/25 text-indigo-300"}`}>
                             {ticket.type === "bug" ? "Bug" : "Task"}
                           </span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${p.bg} ${p.text}`}>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${p.bg} ${p.text}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />
                             {p.label}
                           </span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${s.bg} ${s.text}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
-                            {s.label}
-                          </span>
+                          <label className="sr-only" htmlFor={`status-${ticket.id}`}>
+                            Status for {ticket.title}
+                          </label>
+                          <select
+                            id={`status-${ticket.id}`}
+                            value={ticket.status}
+                            onChange={(e) => void updateTicketStatus(ticket.id, e.target.value)}
+                            className="rounded-lg border border-white/15 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500/50 focus:outline-none"
+                          >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In progress</option>
+                            <option value="testing">Testing</option>
+                            <option value="closed">Closed</option>
+                          </select>
                         </div>
-                        <h3 className="font-semibold text-white">{ticket.title}</h3>
+                        <h3 className="font-medium text-white">{ticket.title}</h3>
                         <p className="mt-1 text-sm text-zinc-400 line-clamp-1">{ticket.description}</p>
-                        <p className="mt-1.5 text-xs text-zinc-500">Apps: {ticket.allowedApps.join(", ")}</p>
+                        <p className="mt-1.5 text-xs text-zinc-500">Apps: {ticket.allowedApps.join(", ") || "—"}</p>
                       </div>
                       <Link
                         href={`/workspace/${ticket.id}/dashboard`}
-                        className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-white/10"
+                        className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10"
                       >
-                        Workspace →
+                        Open workspace
                       </Link>
                     </div>
                   </article>
@@ -330,7 +355,7 @@ export default function AdminTicketsPage() {
           ) : (
             <BeautifulEmptyState
               title="No tickets yet"
-              hint="Create your first ticket from the form to start workflow tracking."
+              hint="Start with “New ticket” on the left — it hits the same API the app uses everywhere else."
             />
           )}
         </div>

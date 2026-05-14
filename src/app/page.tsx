@@ -126,8 +126,6 @@ export default async function HomePage() {
   const ticketCount = Number(ticketTotal ?? 0);
   const orgCount = Number(orgTotal ?? 0);
 
-  const isSetup = userCount > 0;
-
   return (
     <div className="min-h-screen bg-[#020617] text-white overflow-x-hidden">
       {/* Animated background orbs */}
@@ -179,10 +177,10 @@ export default async function HomePage() {
               Sign in
             </Link>
             <Link
-              href={isSetup ? "/admin" : "/setup"}
+              href="/setup"
               className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500"
             >
-              {isSetup ? "Dashboard" : "Get started"}
+              New organization
             </Link>
           </div>
         </div>
@@ -210,10 +208,10 @@ export default async function HomePage() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href={isSetup ? "/admin" : "/setup"}
+              href="/setup"
               className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all hover:bg-indigo-500 hover:shadow-indigo-500/50 hover:-translate-y-0.5"
             >
-              {isSetup ? "Open dashboard" : "Start onboarding"}
+              Create organization
             </Link>
             <Link
               href="/login"
@@ -381,16 +379,15 @@ export default async function HomePage() {
               Ready to bring your team in?
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-zinc-300">
-              {isSetup
-                ? "Your organization is already set up. Sign in or open the admin dashboard to continue."
-                : "Set up your organization in minutes, then invite HR, managers, developers, and testers."}
+              Each organization gets its own HR workspace and isolated tickets. Returning users should sign in;
+              new teams can register below — many organizations can share this instance.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
-                href={isSetup ? "/admin" : "/setup"}
+                href="/setup"
                 className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-500 hover:-translate-y-0.5"
               >
-                {isSetup ? "Open dashboard" : "Start onboarding"}
+                Create organization
               </Link>
               <Link
                 href="/login"
