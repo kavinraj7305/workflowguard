@@ -4,6 +4,7 @@ import { requireHr } from "@/lib/api/auth";
 import { runAdminAiTool, type ToolName } from "@/lib/admin/ai-tools";
 import type { ChatMessage, ChatTool } from "@/lib/llm/openai-compatible";
 import { chatCompletionRound, resolveChatLlm } from "@/lib/llm/openai-compatible";
+import type { DailyReportPayload } from "@/lib/reports/daily";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "tool"]),
@@ -99,6 +100,100 @@ function isToolName(name: string): name is ToolName {
   );
 }
 
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+function formatDailyReportForChat(data: DailyReportPayload): string {
+  const day = data.periodUtc.start.slice(0, 10);
+  const lines: string[] = [
+    `Here’s your org snapshot for **${day}** (UTC day window).`,
+    "",
+    `• Tickets opened today: **${data.ticketsCreatedToday}**`,
+    `• Tickets closed today: **${data.ticketsClosedToday}**`,
+    `• Open bugs: **${data.openBugs}**`,
+    `• Pending leave: **${data.pendingLeave}**`,
+    "",
+    `**Pipeline:** open ${data.pipeline.open}, in progress ${data.pipeline.in_progress}, testing ${data.pipeline.testing}, closed ${data.pipeline.closed} (**${data.pipeline.total}** total).`,
+    "",
+  ];
+  if (data.highlights.length) {
+    lines.push("**Highlights**");
+    for (const h of data.highlights) lines.push(`• ${h}`);
+  }
+  return lines.join("\n");
+}
+
+function formatToolResultForFallback(name: ToolName, result: unknown): string {
+  if (!isRecord(result)) return String(result);
+  if ("error" in result) return `Something went wrong: ${String(result.error)}`;
+
+  switch (name) {
+    case "get_daily_report":
+      return formatDailyReportForChat(result as DailyReportPayload);
+    case "get_ticket_pipeline": {
+      const p = result as {
+        open: number;
+        in_progress: number;
+        testing: number;
+        closed: number;
+        total: number;
+      };
+      return [
+        "**Ticket pipeline**",
+        `Open: **${p.open}** · In progress: **${p.in_progress}** · Testing: **${p.testing}** · Closed: **${p.closed}** · Total: **${p.total}**`,
+      ].join("\n");
+    }
+    case "list_open_bugs": {
+      const bugs = (result as { openBugs?: { title: string; status: string; priority: string }[]; count?: number })
+        .openBugs ?? [];
+      const count = (result as { count?: number }).count ?? bugs.length;
+      if (count === 0) return "No open bugs right now.";
+      const lines = [`**Open bugs (${count})**`];
+      for (const b of bugs.slice(0, 15)) {
+        lines.push(`• **${b.title}** — ${b.status.replace("_", " ")}, ${b.priority} priority`);
+      }
+      if (bugs.length > 15) lines.push(`…and ${bugs.length - 15} more.`);
+      return lines.join("\n");
+    }
+    case "list_employees": {
+      const employees = (result as { employees?: { name: string; email: string; role: string; jobTitle: string | null; department: string | null }[] }).employees ?? [];
+      const count = (result as { count?: number }).count ?? employees.length;
+      if (count === 0) return "No people matched that filter.";
+      const lines = [`**People (${count})**`];
+      for (const e of employees.slice(0, 25)) {
+        const extra = [e.jobTitle, e.department].filter(Boolean).join(" · ");
+        lines.push(`• **${e.name}** (${e.role})${extra ? ` — ${extra}` : ""}`);
+      }
+      if (employees.length > 25) lines.push(`…and ${employees.length - 25} more.`);
+      return lines.join("\n");
+    }
+    case "list_pending_leave": {
+      const requests = (result as { requests?: { requesterName: string; startDate: string; endDate: string; kind: string }[] }).requests ?? [];
+      const count = (result as { count?: number }).count ?? requests.length;
+      if (count === 0) return "No leave requests pending approval.";
+      const lines = [`**Pending leave (${count})**`];
+      for (const r of requests.slice(0, 15)) {
+        lines.push(`• **${r.requesterName}** — ${r.kind}, ${r.startDate} → ${r.endDate}`);
+      }
+      if (requests.length > 15) lines.push(`…and ${requests.length - 15} more.`);
+      return lines.join("\n");
+    }
+    case "get_team_mood": {
+      const members = (result as { members?: { name: string; role: string; ticketWorkload: number; moodLabel: string }[] }).members ?? [];
+      if (members.length === 0) return "No team members found.";
+      const lines = ["**Team mood** (from ticket workload)", ""];
+      for (const m of members.slice(0, 30)) {
+        lines.push(`• **${m.name}** (${m.role}): ${m.moodLabel} — ${m.ticketWorkload} ticket(s) on their plate`);
+      }
+      if (members.length > 30) lines.push(`…and ${members.length - 30} more.`);
+      return lines.join("\n");
+    }
+    default:
+      return "No summary available.";
+  }
+}
+
 async function fallbackAssistant(orgId: string, lastUser: string) {
   const lower = lastUser.toLowerCase();
   const trace: { name: ToolName; result: unknown }[] = [];
@@ -132,26 +227,14 @@ async function fallbackAssistant(orgId: string, lastUser: string) {
 
   if (trace.length === 0) {
     await run("get_daily_report");
-    const parts = [
-      "Here is your UTC-day operations snapshot from the database:",
-      JSON.stringify(trace[0]?.result ?? {}, null, 2),
-      "",
-      "Tip: ask about bugs, team mood, leave, or pipeline. Set GROQ_API_KEY (free tier) for Llama-powered answers.",
-    ];
-    return { reply: parts.join("\n"), toolTrace: trace };
+    const summary = formatToolResultForFallback("get_daily_report", trace[0]!.result);
+    const shortGreeting =
+      lastUser.trim().length <= 24 && /\b(hi|hello|hey)\b/i.test(lastUser.trim()) ? "Hi! " : "";
+    return { reply: `${shortGreeting}${summary}`, toolTrace: trace };
   }
 
-  const lines: string[] = [];
-  for (const step of trace) {
-    lines.push(`**${step.name}**`);
-    lines.push("```json");
-    lines.push(JSON.stringify(step.result, null, 2));
-    lines.push("```");
-    lines.push("");
-  }
-  lines.push("Data is from your org. Add **GROQ_API_KEY** (recommended, free) or OPENAI_API_KEY for natural language on top of these tools.");
-
-  return { reply: lines.join("\n"), toolTrace: trace };
+  const parts = trace.map((step) => formatToolResultForFallback(step.name, step.result));
+  return { reply: parts.join("\n\n"), toolTrace: trace };
 }
 
 export async function POST(request: Request) {

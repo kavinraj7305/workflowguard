@@ -84,6 +84,11 @@ export function WorkspaceShell({
   const pathname = usePathname();
   const tabs = allowedApps.length ? allowedApps : ["dashboard", "profile", "analytics"];
 
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#020617] text-white">
       <WorkspaceActivityTracker
@@ -93,9 +98,9 @@ export function WorkspaceShell({
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/8 bg-[#020617]/92 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:gap-4 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/15">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -121,30 +126,45 @@ export function WorkspaceShell({
             </div>
           </div>
 
-          {/* Tab navigation */}
-          <nav className="flex items-center gap-1.5">
-            {tabs.map((tab) => {
-              const href = `/workspace/${ticketId}/${tab}`;
-              const active = pathname === href;
-              const config = tabConfig[tab];
-              return (
-                <Link
-                  key={tab}
-                  href={href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                    active
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                      : "text-zinc-400 hover:bg-white/6 hover:text-white"
-                  }`}
-                >
-                  {config?.icon}
-                  <span className="hidden sm:inline">
-                    {config?.label ?? tab}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="flex w-full min-w-0 flex-1 items-center justify-end gap-2 sm:w-auto sm:flex-initial sm:gap-3">
+            {/* Tab navigation */}
+            <nav className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-x-auto sm:flex-initial sm:justify-start">
+              {tabs.map((tab) => {
+                const href = `/workspace/${ticketId}/${tab}`;
+                const active = pathname === href;
+                const config = tabConfig[tab];
+                return (
+                  <Link
+                    key={tab}
+                    href={href}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                      active
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                        : "text-zinc-400 hover:bg-white/6 hover:text-white"
+                    }`}
+                  >
+                    {config?.icon}
+                    <span className="hidden sm:inline">
+                      {config?.label ?? tab}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <Link
+              href="/employee"
+              className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:text-white"
+            >
+              My tickets
+            </Link>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-white/20 hover:text-white"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </header>
 
